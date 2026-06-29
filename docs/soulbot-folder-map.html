@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Soulbot 文件夹与文件用途地图</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #fff8fd;
+      --paper: rgba(255, 255, 255, 0.76);
+      --paper-solid: #fffefe;
+      --ink: #392b45;
+      --muted: #776981;
+      --soft: #b893e8;
+      --pink: #ee9fc8;
+      --mint: #9bdacb;
+      --gold: #e3ba71;
+      --line: rgba(126, 91, 150, 0.18);
+      --shadow: 0 22px 70px rgba(111, 82, 137, 0.16);
+      --small-shadow: 0 10px 34px rgba(111, 82, 137, 0.12);
+      --radius: 22px;
+      --mono: "SFMono-Regular", "Cascadia Code", "Menlo", "Consolas", monospace;
+      --sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(238, 159, 200, 0.22), transparent 30%),
+        radial-gradient(circle at 86% 3%, rgba(155, 218, 203, 0.24), transparent 30%),
+        linear-gradient(135deg, #fff9fc 0%, #fbf3ff 46%, #f7fffc 100%);
+      letter-spacing: 0;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.28;
+      background-image:
+        linear-gradient(rgba(126, 91, 150, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(126, 91, 150, 0.05) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
+    }
+
+    a {
+      color: #8059c9;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 72px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 260px;
+      gap: 26px;
+      align-items: center;
+      padding: 34px;
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      border-radius: 30px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 246, 253, 0.62)),
+        linear-gradient(135deg, rgba(184, 147, 232, 0.22), rgba(238, 159, 200, 0.12));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 42%;
+      height: 8px;
+      background: linear-gradient(90deg, var(--soft), var(--pink), var(--mint));
+      opacity: 0.72;
+      border-radius: 999px 0 0 0;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 7px 12px;
+      border: 1px solid rgba(128, 89, 201, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.74);
+      color: #73508f;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 58px);
+      line-height: 1.06;
+      font-weight: 900;
+      color: #352343;
+    }
+
+    .lead {
+      max-width: 780px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.85;
+    }
+
+    .brand-card {
+      position: relative;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.68);
+      box-shadow: var(--small-shadow);
+    }
+
+    .brand-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 18px;
+      background: #fff;
+    }
+
+    .brand-card p {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      margin: 22px 0;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 12px 40px rgba(111, 82, 137, 0.12);
+      backdrop-filter: blur(18px);
+    }
+
+    .search {
+      width: 100%;
+      min-height: 46px;
+      padding: 0 16px;
+      border: 1px solid rgba(128, 89, 201, 0.2);
+      border-radius: 16px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.88);
+      font: 15px/1 var(--sans);
+      outline: none;
+    }
+
+    .search:focus {
+      border-color: rgba(128, 89, 201, 0.5);
+      box-shadow: 0 0 0 4px rgba(184, 147, 232, 0.16);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #684f7c;
+      background: rgba(255, 255, 255, 0.72);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .metric {
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      border-radius: 22px;
+      background: var(--paper);
+      box-shadow: var(--small-shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .metric strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #44304f;
+      font-size: 24px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin: 16px 0 24px;
+    }
+
+    .flow div {
+      min-height: 86px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 8px 24px rgba(111, 82, 137, 0.08);
+    }
+
+    .flow b {
+      display: block;
+      margin-bottom: 8px;
+      color: #4b315c;
+      font-size: 14px;
+    }
+
+    .flow span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 18px 0 26px;
+    }
+
+    .toc a {
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.7);
+      color: #5d4070;
+      font-size: 14px;
+      font-weight: 800;
+      box-shadow: 0 8px 22px rgba(111, 82, 137, 0.08);
+    }
+
+    section {
+      margin-top: 22px;
+      padding: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.76);
+      border-radius: 26px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    h2 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 14px;
+      color: #3a2846;
+      font-size: 24px;
+      line-height: 1.25;
+    }
+
+    h2::before {
+      content: "";
+      width: 10px;
+      height: 28px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--pink), var(--soft), var(--mint));
+      box-shadow: 0 6px 18px rgba(184, 147, 232, 0.35);
+    }
+
+    .section-note {
+      margin: -2px 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    details {
+      margin: 12px 0;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.68);
+      overflow: hidden;
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 15px 18px;
+      color: #4a3458;
+      font-weight: 900;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary::after {
+      content: "展开";
+      float: right;
+      color: #8b6a9d;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    details[open] summary::after {
+      content: "收起";
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border-top: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid rgba(126, 91, 150, 0.12);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      color: #604071;
+      background: rgba(255, 247, 252, 0.96);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 245, 251, 0.72);
+    }
+
+    code {
+      padding: 2px 6px;
+      border-radius: 8px;
+      color: #5a3477;
+      background: rgba(184, 147, 232, 0.13);
+      font-family: var(--mono);
+      font-size: 0.92em;
+      word-break: break-word;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      color: #62436f;
+      background: rgba(184, 147, 232, 0.14);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .tag.hot {
+      color: #83516b;
+      background: rgba(238, 159, 200, 0.18);
+    }
+
+    .tag.cool {
+      color: #3e756a;
+      background: rgba(155, 218, 203, 0.22);
+    }
+
+    .callout {
+      margin-top: 16px;
+      padding: 16px 18px;
+      border: 1px solid rgba(227, 186, 113, 0.34);
+      border-radius: 18px;
+      background: rgba(255, 249, 236, 0.74);
+      color: #725b34;
+      line-height: 1.8;
+      font-size: 14px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .hidden-by-filter {
+      display: none !important;
+    }
+
+    footer {
+      margin-top: 28px;
+      padding: 18px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .toolbar,
+      .grid,
+      .flow,
+      .toc {
+        grid-template-columns: 1fr;
+      }
+
+      .brand-card {
+        max-width: 280px;
+      }
+
+      .toolbar {
+        position: static;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        width: min(100% - 20px, 1180px);
+        padding-top: 14px;
+      }
+
+      .hero,
+      section {
+        padding: 18px;
+        border-radius: 22px;
+      }
+
+      h1 {
+        font-size: 32px;
+      }
+
+      .lead {
+        font-size: 15px;
+      }
+
+      th,
+      td {
+        padding: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">Soulmeet / Aini 项目结构说明</span>
+        <h1>Soulbot 文件夹与文件用途地图</h1>
+        <p class="lead">
+          这份文档把仓库拆成前端、后端、共享包、角色素材、部署配置和本地运行数据几层来说明。
+          源码文件逐项列出用途；第三方依赖、Git 数据、缓存、日志和虚拟环境按目录规则归类，避免把外部生成内容误认为业务设计。
+        </p>
+      </div>
+      <aside class="brand-card" aria-label="Soulmeet 品牌素材">
+        <img src="../apps/web/public/brand-logo.png" alt="Soulmeet" />
+        <p>当前仓库是动漫陪伴 AI 产品，不是企业后台。UI 设计应保持柔和、梦幻、清爽、玻璃质感。</p>
+      </aside>
+    </header>
+
+    <div class="toolbar">
+      <input id="searchInput" class="search" type="search" placeholder="搜索文件、目录、用途，例如 chat.vue、WebRTC、记忆、部署" />
+      <div class="pill-row" aria-label="文档标签">
+        <span class="pill">Vue + Vite</span>
+        <span class="pill">FastAPI</span>
+        <span class="pill">LiveKit</span>
+        <span class="pill">Soul companion</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="metric"><strong>apps/web</strong><span>前端入口，首页、聊天页、状态管理、实时语音连接和卡片化回复。</span></div>
+      <div class="metric"><strong>apps/backend</strong><span>FastAPI 后端，文本/语音会话、记忆、鉴权、角色素材和工具调用。</span></div>
+      <div class="metric"><strong>packages</strong><span>workspace 共享包，承载 i18n、类型、UI 和 3D 角色渲染。</span></div>
+      <div class="metric"><strong>plugins</strong><span>确定性工具插件，提供天气、车票、本地搜索、旅行规划和联网资料读取。</span></div>
+    </div>
+
+    <section id="overview">
+      <h2>整体链路</h2>
+      <p class="section-note">从用户输入到回复展示，项目的大致运行路径如下。</p>
+      <div class="flow">
+        <div><b>Web 输入</b><span><code>apps/web</code> 负责聊天输入、语音控制、角色展示和卡片渲染。</span></div>
+        <div><b>API 层</b><span><code>apps/backend/main.py</code> 注册文本、WebRTC、鉴权、对话、天气等路由。</span></div>
+        <div><b>会话层</b><span><code>runtime_session.py</code> 管理会话、历史、流式输出、中断和记忆同步。</span></div>
+        <div><b>Agent/工具</b><span><code>core/soul_companion</code> 调 LLM 工具循环或关键词回退路由。</span></div>
+        <div><b>结果展示</b><span>前端将文本、任务进度、天气、车票、旅行 artifact 转成柔和卡片。</span></div>
+      </div>
+      <nav class="toc" aria-label="目录">
+        <a href="#top-level">顶层目录与文件</a>
+        <a href="#backend">后端文件</a>
+        <a href="#frontend">前端文件</a>
+        <a href="#packages">共享包</a>
+        <a href="#audiences">角色与知识</a>
+        <a href="#deploy">部署配置</a>
+        <a href="#runtime">运行数据</a>
+        <a href="#notes">维护注意</a>
+      </nav>
+    </section>
+
+    <section id="top-level" data-search-section>
+      <h2>顶层目录与文件</h2>
+      <p class="section-note">这里说明仓库根目录下每个主要文件和文件夹的职责。</p>
+
+      <details open>
+        <summary>顶层文件夹</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>路径</th><th>类型</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>apps/</code></td><td><span class="tag hot">业务源码</span></td><td>主应用目录，包含 Vue 前端 <code>apps/web</code> 和 FastAPI 后端 <code>apps/backend</code>。</td></tr>
+              <tr><td><code>packages/</code></td><td><span class="tag hot">共享源码</span></td><td>pnpm workspace 包，提供共享类型、UI、国际化和 3D 舞台组件。</td></tr>
+              <tr><td><code>plugins/</code></td><td><span class="tag hot">工具插件</span></td><td>Soul companion 工具插件目录，目前主要是 <code>soul-companion</code>。</td></tr>
+              <tr><td><code>deploy/</code></td><td><span class="tag">部署</span></td><td>Docker Compose、Nginx、镜像构建推送脚本和部署说明。</td></tr>
+              <tr><td><code>docs/</code></td><td><span class="tag">文档</span></td><td>项目说明、排查报告、部署指南，以及本文档。</td></tr>
+              <tr><td><code>certs/</code></td><td><span class="tag">证书</span></td><td>本地或部署使用的 TLS 证书文件，属于敏感运行材料。</td></tr>
+              <tr><td><code>data/</code></td><td><span class="tag cool">运行数据</span></td><td>本地 SQLite KV 数据库、WAL/SHM 文件、提醒任务 JSON。</td></tr>
+              <tr><td><code>memories/</code></td><td><span class="tag cool">运行数据</span></td><td>对话记忆落盘目录，按用户、会话、时间分片保存 Markdown/JSON。</td></tr>
+              <tr><td><code>log/</code></td><td><span class="tag cool">运行数据</span></td><td>开发启动、后端、前端、数据库和历史运行日志。</td></tr>
+              <tr><td><code>.agents/</code></td><td><span class="tag">Agent 配置</span></td><td>本仓库本地 agent skills，如诊断、TDD、架构改进、handoff 等。</td></tr>
+              <tr><td><code>.understand-anything/</code></td><td><span class="tag">分析工具</span></td><td>代码知识图谱工具生成的 graph、viewer 和元数据。</td></tr>
+              <tr><td><code>.elder_soul_home/</code></td><td><span class="tag cool">旧运行目录</span></td><td>旧 elder/soul 运行家目录结构，当前为空或仅保留目录壳。</td></tr>
+              <tr><td><code>.soul_companion_home/</code></td><td><span class="tag cool">旧运行目录</span></td><td>Soul companion 运行家目录结构，当前为空或仅保留目录壳。</td></tr>
+              <tr><td><code>node_modules/</code></td><td><span class="tag cool">依赖</span></td><td>pnpm/npm 安装的第三方依赖，不属于业务源码。</td></tr>
+              <tr><td><code>.pnpm-store/</code></td><td><span class="tag cool">依赖缓存</span></td><td>pnpm 本地包缓存。</td></tr>
+              <tr><td><code>.venv/</code>, <code>.venv-test/</code></td><td><span class="tag cool">Python 环境</span></td><td>Python 虚拟环境和测试环境，不属于业务源码。</td></tr>
+              <tr><td><code>.git/</code></td><td><span class="tag cool">版本库</span></td><td>Git 内部数据。</td></tr>
+              <tr><td><code>.idea/</code></td><td><span class="tag cool">IDE</span></td><td>JetBrains IDE 本地配置。</td></tr>
+              <tr><td><code>__pycache__/</code>, <code>.pytest_cache/</code></td><td><span class="tag cool">缓存</span></td><td>Python 编译缓存和 pytest 缓存。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary>顶层文件</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>类型</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>README.md</code></td><td><span class="tag">文档</span></td><td>项目能力、后端结构、本地验证和运行命令。</td></tr>
+              <tr><td><code>AGENTS.md</code></td><td><span class="tag">规范</span></td><td>本仓库前端风格和工程规则，强调动漫陪伴、柔和梦幻、保留聊天/语音/天气行为。</td></tr>
+              <tr><td><code>DEPLOYMENT.md</code></td><td><span class="tag">部署</span></td><td>Railway 后端和 Vercel 前端部署步骤。</td></tr>
+              <tr><td><code>package.json</code></td><td><span class="tag">配置</span></td><td>根 workspace 脚本：<code>dev:web</code>、<code>build:web</code>、<code>build:packages</code>、<code>typecheck</code>、<code>lint</code>。</td></tr>
+              <tr><td><code>pnpm-workspace.yaml</code></td><td><span class="tag">配置</span></td><td>声明 workspace 包范围：<code>packages/*</code> 和 <code>apps/*</code>。</td></tr>
+              <tr><td><code>pnpm-lock.yaml</code></td><td><span class="tag">锁文件</span></td><td>pnpm 依赖锁，保证安装版本一致。</td></tr>
+              <tr><td><code>package-lock.json</code></td><td><span class="tag">锁文件</span></td><td>npm 锁文件，当前项目主流程更偏 pnpm。</td></tr>
+              <tr><td><code>tsconfig.json</code></td><td><span class="tag">配置</span></td><td>根 TypeScript 编译选项。</td></tr>
+              <tr><td><code>pytest.ini</code></td><td><span class="tag">配置</span></td><td>pytest 配置，将 <code>apps/backend</code> 加入 Python import path。</td></tr>
+              <tr><td><code>vercel.json</code></td><td><span class="tag">部署</span></td><td>Vercel 安装、构建、输出目录和 SPA rewrite 配置。</td></tr>
+              <tr><td><code>start-dev.sh</code></td><td><span class="tag hot">启动脚本</span></td><td>本地一键启动 PostgreSQL、FastAPI 后端、Vite 前端，写入 <code>log/</code>。</td></tr>
+              <tr><td><code>start_elder_companion.sh</code></td><td><span class="tag">兼容脚本</span></td><td>旧 elder companion 相关启动入口。</td></tr>
+              <tr><td><code>soul_cli.py</code></td><td><span class="tag hot">CLI</span></td><td>命令行文本问答入口，直接调用 <code>core.soul_companion.answer_user_text</code>。</td></tr>
+              <tr><td><code>soul_companion_prompt.md</code></td><td><span class="tag hot">Prompt</span></td><td>Soul companion 相关提示词文本。</td></tr>
+              <tr><td><code>skills-lock.json</code></td><td><span class="tag">Agent 配置</span></td><td>本地 agent skills 锁定信息。</td></tr>
+              <tr><td><code>.env</code></td><td><span class="tag hot">敏感配置</span></td><td>本地环境变量，可能包含 API Key、数据库地址、JWT 密钥等，不应公开。</td></tr>
+              <tr><td><code>.env.example</code></td><td><span class="tag">模板</span></td><td>环境变量示例模板。</td></tr>
+              <tr><td><code>.gitignore</code></td><td><span class="tag">配置</span></td><td>Git 忽略规则，排除依赖、缓存、日志、数据、证书等。</td></tr>
+              <tr><td><code>.dockerignore</code></td><td><span class="tag">配置</span></td><td>Docker 构建上下文忽略规则。</td></tr>
+              <tr><td><code>.gitattributes</code></td><td><span class="tag">配置</span></td><td>Git 文件属性配置。</td></tr>
+              <tr><td><code>.npmrc</code></td><td><span class="tag">配置</span></td><td>pnpm/npm 行为配置，如 hoist 和 peer dependency 策略。</td></tr>
+              <tr><td><code>.nvmrc</code></td><td><span class="tag">配置</span></td><td>Node 版本指示，当前为 Node 20。</td></tr>
+              <tr><td><code>.DS_Store</code></td><td><span class="tag cool">本地文件</span></td><td>macOS Finder 元数据，无业务含义。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <section id="backend" data-search-section>
+      <h2>后端文件地图</h2>
+      <p class="section-note">后端是 FastAPI + Pipecat + LiveKit + Soul companion 工具运行时。核心入口是 <code>apps/backend/main.py</code>。</p>
+
+      <details open>
+        <summary>后端根文件</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>apps/backend/main.py</code></td><td>FastAPI 应用入口，初始化配置、日志、数据库、记忆、工具注册、会话工厂、CORS、API 路由和 uvicorn。</td></tr>
+              <tr><td><code>apps/backend/requirements.txt</code></td><td>Python 依赖清单，包括 FastAPI、SQLAlchemy、Pipecat、DashScope、LiveKit、OSS、Sentry 等。</td></tr>
+              <tr><td><code>apps/backend/Dockerfile</code></td><td>后端容器镜像构建文件，分 builder 和 runtime 阶段。</td></tr>
+              <tr><td><code>apps/backend/railway.json</code></td><td>Railway 构建和部署配置，指定 Dockerfile、启动命令和健康检查。</td></tr>
+              <tr><td><code>apps/backend/railway-start.sh</code></td><td>Railway 容器启动脚本，执行 <code>python main.py</code>。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary><code>apps/backend/core/api/</code> API 路由</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>__init__.py</code></td><td>API 包标记文件。</td></tr>
+              <tr><td><code>audiences.py</code></td><td>发现角色 persona，返回角色列表，并提供头像、模型、背景等静态素材接口。</td></tr>
+              <tr><td><code>auth.py</code></td><td>注册、登录、API Key 列表/重置/撤销、当前用户接口。</td></tr>
+              <tr><td><code>conversations.py</code></td><td>对话列表、创建、详情、重命名和删除接口。</td></tr>
+              <tr><td><code>session.py</code></td><td>运行中会话列表、详情、关闭和历史查询接口。</td></tr>
+              <tr><td><code>speech.py</code></td><td>语音文件/PCM 转写接口，调用 DashScope STT。</td></tr>
+              <tr><td><code>text_runtime.py</code></td><td>HTTP 文本聊天入口、SSE 进度事件、中断接口，统一进入 conversation runtime。</td></tr>
+              <tr><td><code>voice_clone.py</code></td><td>声音样本上传、声音克隆、重置音色、查询克隆状态。</td></tr>
+              <tr><td><code>weather.py</code></td><td>当前天气接口，复用 Soul companion 天气能力。</td></tr>
+              <tr><td><code>webrtc.py</code></td><td>实时语音核心路由，处理 WebRTC offer、LiveKit token、bot 会话、数据通道和 active sessions。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary><code>apps/backend/core/auth/</code> 鉴权</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>__init__.py</code></td><td>鉴权包导出。</td></tr>
+              <tr><td><code>dependencies.py</code></td><td>FastAPI 当前用户依赖，解析 bearer token 或 API Key。</td></tr>
+              <tr><td><code>models.py</code></td><td>用户、认证凭据、API Key、登录审计 SQLAlchemy 模型。</td></tr>
+              <tr><td><code>schemas.py</code></td><td>注册、登录、API Key、当前用户等 Pydantic 请求/响应模型。</td></tr>
+              <tr><td><code>service.py</code></td><td>注册、密码登录、API Key 登录、Key 管理、管理员初始化。</td></tr>
+              <tr><td><code>utils.py</code></td><td>密码 hash/校验、API Key 生成与 hash、key prefix 提取。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary><code>apps/backend/core/conversation/</code> 会话、历史、记忆</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>__init__.py</code></td><td>conversation 包标记。</td></tr>
+              <tr><td><code>context_manager.py</code></td><td>异步上下文管理器，负责摘要、事件、embedding、文件记忆和上下文注入。</td></tr>
+              <tr><td><code>embedding_service.py</code></td><td>调用 embedding API，生成向量并和 SQLStore 配合做向量存储。</td></tr>
+              <tr><td><code>file_store.py</code></td><td>将记忆写入 <code>memories/</code> 的文件存储层。</td></tr>
+              <tr><td><code>history.py</code></td><td>会话历史管理器，读写用户和助手消息。</td></tr>
+              <tr><td><code>knowledge.py</code></td><td>记忆存储标签和规则定义。</td></tr>
+              <tr><td><code>models.py</code></td><td>SQLAlchemy 模型：记忆、对话、会话关联、消息，以及数据库初始化。</td></tr>
+              <tr><td><code>public_artifact.py</code></td><td>清洗后端 artifact 和任务进度数据，避免向前端泄露内部字段。</td></tr>
+              <tr><td><code>runtime_session.py</code></td><td>文本和语音共用的会话运行时，处理消息、流式输出、TTS、中断、提醒、记忆同步。</td></tr>
+              <tr><td><code>sql_store.py</code></td><td>数据库访问层，管理对话、消息、记忆、搜索、统计等持久化操作。</td></tr>
+              <tr><td><code>store.py</code></td><td>会话存储抽象和内存实现。</td></tr>
+              <tr><td><code>presets/__init__.py</code></td><td>预设包占位。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary><code>apps/backend/core/soul_companion/</code> 当前核心 Agent 能力</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>__init__.py</code></td><td>导出 <code>answer_user_text</code> 等 Soul companion 能力。</td></tr>
+              <tr><td><code>agent_loop.py</code></td><td>LLM tool-calling 循环，构建工具 schema、发起 chat completions、调用工具并合成最终中文回复。</td></tr>
+              <tr><td><code>prompt.md</code></td><td>Soul companion agent 的系统提示词。</td></tr>
+              <tr><td><code>reminders.py</code></td><td>中文提醒解析、提醒任务模型、到期文本和提醒调度器。</td></tr>
+              <tr><td><code>runtime.py</code></td><td>后端面向工具插件的适配层，加载插件、解码工具响应、判断天气/车票/旅行/搜索等意图。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details>
+        <summary><code>apps/backend/core/pipeline/</code> 实时语音流水线</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>__init__.py</code></td><td>pipeline 包标记。</td></tr>
+              <tr><td><code>factory.py</code></td><td>组装 Pipecat pipeline，包含用户文本转发、情绪处理、Soul companion 回复、TTS。</td></tr>
+              <tr><td><code>processors/audio_recorder.py</code></td><td>录制音频帧，便于调试或保存。</td></tr>
+              <tr><td><code>processors/chinese_text_aggregator.py</code></td><td>中文文本聚合器，适配中文语音流。</td></tr>
+              <tr><td><code>processors/context_sync.py</code></td><td>上下文同步处理器，负责对话摘要、重要事件、记忆写入。</td></tr>
+              <tr><td><code>processors/dashscope_stt.py</code></td><td>DashScope 实时语音识别处理器。</td></tr>
+              <tr><td><code>processors/dashscope_tts.py</code></td><td>DashScope 语音合成处理器，含连接池和异常过滤。</td></tr>
+              <tr><td><code>processors/sentence_splitter.py</code></td><td>按中文标点和长度拆分 TTS 句子。</td></tr>
+              <tr><td><code>processors/vad_interrupt_strategy.py</code></td><td>VAD 用户打断时的静音策略。</td></tr>
+              <tr><td><code>processors/__init__.py</code></td><td>processors 包标记。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details>
+        <summary><code>apps/backend/core/tools/</code> 工具抽象与内置工具</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>__init__.py</code></td><td>工具包标记。</td></tr>
+              <tr><td><code>base.py</code></td><td>工具基类和工具执行异常。</td></tr>
+              <tr><td><code>registry.py</code></td><td>工具注册器，处理重复注册和工具查找。</td></tr>
+              <tr><td><code>knowledge/list_knowledge.py</code></td><td>列出角色领域知识文档。</td></tr>
+              <tr><td><code>knowledge/read_knowledge.py</code></td><td>安全读取角色领域知识文档。</td></tr>
+              <tr><td><code>knowledge/paths.py</code></td><td>领域知识目录解析和安全路径校验。</td></tr>
+              <tr><td><code>knowledge/__init__.py</code></td><td>知识工具导出。</td></tr>
+              <tr><td><code>memory/save_event.py</code></td><td>保存重要事件到记忆系统。</td></tr>
+              <tr><td><code>memory/compress_summary.py</code></td><td>压缩对话摘要的工具。</td></tr>
+              <tr><td><code>memory/__init__.py</code></td><td>记忆工具导出。</td></tr>
+              <tr><td><code>primitives/http_fetch.py</code></td><td>HTTP 请求原语。</td></tr>
+              <tr><td><code>primitives/kv_store.py</code></td><td>内存和 SQLite KV 存储原语。</td></tr>
+              <tr><td><code>primitives/shell_exec.py</code></td><td>Shell 执行原语，带异常封装。</td></tr>
+              <tr><td><code>primitives/timer.py</code></td><td>计时器管理原语。</td></tr>
+              <tr><td><code>primitives/__init__.py</code></td><td>原语包标记。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details>
+        <summary>其他后端 core 文件与脚本</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>core/config.py</code></td><td>Pydantic Settings 配置中心，从环境变量和 <code>.env</code> 读取后端配置。</td></tr>
+              <tr><td><code>core/logging_utils.py</code></td><td>日志类别、过滤、截断、session logger 等工具。</td></tr>
+              <tr><td><code>core/observability.py</code></td><td>trace span/run、JSONL trace store、trace recorder。</td></tr>
+              <tr><td><code>core/emotion/signals.py</code></td><td>情绪信号和情绪决策数据结构。</td></tr>
+              <tr><td><code>core/emotion/signal_detector.py</code></td><td>基于文本/关键词检测 sadness、anxiety、anger 等情绪信号。</td></tr>
+              <tr><td><code>core/emotion/__init__.py</code></td><td>emotion 包标记。</td></tr>
+              <tr><td><code>core/persona/schema.py</code></td><td>persona 配置模型、加载和校验。</td></tr>
+              <tr><td><code>core/persona/__init__.py</code></td><td>persona 包标记。</td></tr>
+              <tr><td><code>core/safety/filter.py</code></td><td>安全过滤接口和基础实现。</td></tr>
+              <tr><td><code>core/safety/__init__.py</code></td><td>safety 包标记。</td></tr>
+              <tr><td><code>apps/backend/scripts/generate_domain_index.py</code></td><td>扫描角色 domain Markdown，提取标题、文号、日期、关键词，生成 <code>_index.yaml</code>。</td></tr>
+              <tr><td><code>apps/backend/scripts/memory_manager.py</code></td><td>命令行管理数据库记忆，支持 list/get/add/update/delete/stats/clear。</td></tr>
+              <tr><td><code>apps/backend/scripts/memory_viewer.py</code></td><td>记忆查看服务，提供按 session/speaker 查询的页面或接口。</td></tr>
+              <tr><td><code>apps/backend/scripts/sql_manager.py</code></td><td>直接查询 summaries/events 等 SQL 记忆数据的维护脚本。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <section id="frontend" data-search-section>
+      <h2>前端文件地图</h2>
+      <p class="section-note">前端是 Vue 3 + Vite + Pinia + UnoCSS。主页面是 <code>pages/index.vue</code> 和 <code>pages/chat.vue</code>。</p>
+
+      <details open>
+        <summary>前端入口与配置</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>apps/web/package.json</code></td><td>Web 应用依赖和脚本，包含 Vite、Vue、Pinia、Element Plus、LiveKit、Sentry、workspace 包。</td></tr>
+              <tr><td><code>apps/web/vite.config.ts</code></td><td>Vite 配置，启用 Vue、UnoCSS、自动导入、组件自动注册、HTTPS、本地 API mock 和后端代理。</td></tr>
+              <tr><td><code>apps/web/uno.config.ts</code></td><td>UnoCSS 配置，定义 Carbon 图标 safelist 和主题色。</td></tr>
+              <tr><td><code>apps/web/tsconfig.json</code></td><td>Web 子项目 TypeScript 配置。</td></tr>
+              <tr><td><code>apps/web/index.html</code></td><td>HTML 入口，设置 favicon、PWA manifest、viewport 和 <code>#app</code>。</td></tr>
+              <tr><td><code>apps/web/mock/data.ts</code></td><td>本地开发 mock 数据，给 Vite proxy fallback 使用。</td></tr>
+              <tr><td><code>apps/web/src/main.ts</code></td><td>创建 Vue app，注册 Pinia、router、i18n、Sentry、UnoCSS 和全局样式。</td></tr>
+              <tr><td><code>apps/web/src/App.vue</code></td><td>根组件，承载 router view。</td></tr>
+              <tr><td><code>apps/web/src/router/index.ts</code></td><td>路由定义：主页、默认聊天、指定角色聊天、指定会话聊天。</td></tr>
+              <tr><td><code>apps/web/src/env.d.ts</code></td><td>Vite 环境变量类型声明。</td></tr>
+              <tr><td><code>apps/web/src/auto-imports.d.ts</code></td><td>自动导入类型声明，由插件生成。</td></tr>
+              <tr><td><code>apps/web/src/components.d.ts</code></td><td>自动组件类型声明，由插件生成。</td></tr>
+              <tr><td><code>apps/web/src/styles/theme.css</code></td><td>全局字体和聊天内容字号变量。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary>页面、状态、组合函数、工具</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>pages/index.vue</code></td><td>首页和角色选择体验，加载 audience 列表，展示陪伴角色、技能包、订阅入口。</td></tr>
+              <tr><td><code>pages/chat.vue</code></td><td>主聊天页面，串联文本聊天、语音、LiveKit、对话历史、天气、角色模型、桌面/移动布局。</td></tr>
+              <tr><td><code>stores/auth.ts</code></td><td>登录态、JWT、本地用户资料覆盖、注册、密码/API Key 登录、登出。</td></tr>
+              <tr><td><code>stores/session.ts</code></td><td>连接状态、当前角色、VRM 地址、情绪状态、当前节点和可用工具。</td></tr>
+              <tr><td><code>composables/useChat.ts</code></td><td>前端聊天状态机，处理服务端消息、流式回复、任务进度、assistant process、artifact。</td></tr>
+              <tr><td><code>composables/useWebRTC.ts</code></td><td>实时语音连接，支持 LiveKit/self WebRTC、麦克风、远端音频、数据消息、打断和语音模式。</td></tr>
+              <tr><td><code>composables/useTranscript.ts</code></td><td>转写文本辅助状态。</td></tr>
+              <tr><td><code>composables/useEscapeKey.ts</code></td><td>Escape 键关闭弹窗/面板的通用逻辑。</td></tr>
+              <tr><td><code>utils/api.ts</code></td><td>根据 <code>VITE_BACKEND_ORIGIN</code> 拼接 API URL。</td></tr>
+              <tr><td><code>utils/conversationRounds.ts</code></td><td>把消息列表整理成用户与助手轮次，供聊天侧栏/近期对话展示使用。</td></tr>
+              <tr><td><code>utils/quickActionSuggestions.ts</code></td><td>根据最近对话和城市词生成快捷气泡建议。</td></tr>
+              <tr><td><code>utils/skillCatalog.ts</code></td><td>技能目录和任务进度图标/文案映射。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary>通用组件</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>components/AvatarErrorFallback.vue</code></td><td>头像/角色素材加载失败时的 fallback。</td></tr>
+              <tr><td><code>components/LoginModal.vue</code></td><td>登录弹窗，支持密码和 API Key。</td></tr>
+              <tr><td><code>components/RegisterModal.vue</code></td><td>注册弹窗，注册成功后展示 API Key。</td></tr>
+              <tr><td><code>components/SpeechBubble.vue</code></td><td>气泡样式展示组件。</td></tr>
+              <tr><td><code>components/StatusDrawer.vue</code></td><td>连接状态、会话状态侧边抽屉。</td></tr>
+              <tr><td><code>components/VoiceCloneModal.vue</code></td><td>声音克隆上传、克隆、重置和状态展示弹窗。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary><code>components/chat/</code> 聊天组件</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>DesktopChatLayout.vue</code></td><td>桌面聊天布局，包含角色舞台、主聊天区、侧栏、天气/会话/控制区。</td></tr>
+              <tr><td><code>MobileChatLayout.vue</code></td><td>移动端聊天布局，处理小屏幕输入、气泡、角色头像、抽屉等。</td></tr>
+              <tr><td><code>BotReplyContent.vue</code></td><td>助手回复内容容器，组合 Markdown、图片、artifact 卡片。</td></tr>
+              <tr><td><code>MarkdownReply.vue</code></td><td>Markdown 回复渲染和安全处理。</td></tr>
+              <tr><td><code>AgentProcessPreview.vue</code></td><td>展示 agent 处理过程的简短预览。</td></tr>
+              <tr><td><code>TaskProgressCard.vue</code></td><td>任务进度卡，展示运行中、成功、失败、部分成功、需要输入等状态。</td></tr>
+              <tr><td><code>TaskResultBlocks.vue</code></td><td>任务结果块渲染。</td></tr>
+              <tr><td><code>QuickActionBubbles.vue</code></td><td>聊天快捷建议气泡。</td></tr>
+              <tr><td><code>EmotionDebugPanel.vue</code></td><td>情绪状态调试面板。</td></tr>
+              <tr><td><code>WeatherMark.vue</code></td><td>天气标记/徽章组件。</td></tr>
+              <tr><td><code>WeatherReplyCard.vue</code></td><td>单次天气查询结果卡。</td></tr>
+              <tr><td><code>WeatherForecastCard.vue</code></td><td>多日天气趋势卡，包含温度曲线和天气摘要。</td></tr>
+              <tr><td><code>TrainTicketCards.vue</code></td><td>动车/高铁车次结果卡。</td></tr>
+              <tr><td><code>TravelReplyCards.vue</code></td><td>旅行攻略、美食、景点、住宿等结构化结果卡。</td></tr>
+              <tr><td><code>botReplyFormatting.ts</code></td><td>助手 Markdown 文本格式化。</td></tr>
+              <tr><td><code>botReplyPresentation.ts</code></td><td>从 artifact 中提取展示素材、图片等。</td></tr>
+              <tr><td><code>trainTicketCards.ts</code></td><td>车票 artifact 解析和卡片数据结构。</td></tr>
+              <tr><td><code>travelReplyCards.ts</code></td><td>旅行/地点 artifact 与文本解析，生成旅行卡片数据。</td></tr>
+              <tr><td><code>weatherForecastCard.ts</code></td><td>天气预报卡片数据解析。</td></tr>
+              <tr><td><code>weatherReplyCard.ts</code></td><td>天气回复卡片数据解析。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details>
+        <summary>首页、技能和会话组件</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>components/home/CompanionCard.vue</code></td><td>首页陪伴角色卡片。</td></tr>
+              <tr><td><code>components/home/CompanionHero.vue</code></td><td>首页主推角色 Hero 区。</td></tr>
+              <tr><td><code>components/home/CompanionProgressCard.vue</code></td><td>陪伴进度/关系进度展示卡。</td></tr>
+              <tr><td><code>components/home/HeroArtTitle.vue</code></td><td>Hero 艺术标题组件。</td></tr>
+              <tr><td><code>components/home/MemoryCard.vue</code></td><td>首页记忆卡片。</td></tr>
+              <tr><td><code>components/home/SidebarNav.vue</code></td><td>首页侧边导航。</td></tr>
+              <tr><td><code>components/home/SkillPackageCard.vue</code></td><td>技能包卡片。</td></tr>
+              <tr><td><code>components/home/SubscriptionModal.vue</code></td><td>订阅弹窗和订阅方案展示。</td></tr>
+              <tr><td><code>components/home/types.ts</code></td><td>首页组件共享类型。</td></tr>
+              <tr><td><code>components/skills/SkillCenterModal.vue</code></td><td>技能中心弹窗。</td></tr>
+              <tr><td><code>components/skills/SkillBundleCard.vue</code></td><td>技能包组合卡。</td></tr>
+              <tr><td><code>components/skills/SkillCard.vue</code></td><td>单个技能卡。</td></tr>
+              <tr><td><code>components/skills/types.ts</code></td><td>技能组件共享类型。</td></tr>
+              <tr><td><code>components/conversations/AllConversationsModal.vue</code></td><td>全部对话列表弹窗，支持选择、删除、收藏等。</td></tr>
+              <tr><td><code>components/conversations/RenameConversationModal.vue</code></td><td>重命名对话弹窗。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details>
+        <summary>前端静态资源</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>路径</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>apps/web/public/brand-logo.png</code>, <code>brand-icon.png</code></td><td>Soulmeet 品牌 logo 和图标。</td></tr>
+              <tr><td><code>apps/web/public/favicon*.png</code>, <code>apple-touch-icon.png</code></td><td>浏览器 favicon 和移动端图标。</td></tr>
+              <tr><td><code>apps/web/public/manifest.webmanifest</code></td><td>PWA manifest。</td></tr>
+              <tr><td><code>apps/web/public/default_head.png</code></td><td>默认头像。</td></tr>
+              <tr><td><code>apps/web/public/img/audiences/*</code></td><td>首页/公开访问用的角色图片副本。</td></tr>
+              <tr><td><code>apps/web/public/k1.png</code> 至 <code>k6.jpg</code></td><td>首页或角色展示素材。</td></tr>
+              <tr><td><code>apps/web/public/mood-box.png</code></td><td>情绪/心情盒子相关静态图。</td></tr>
+              <tr><td><code>apps/web/public/explore_skills_pastel_bg.png</code></td><td>技能探索区域背景图。</td></tr>
+              <tr><td><code>apps/web/src/assets/images/mood-box-bg.png</code></td><td>组件内引用的心情盒子背景。</td></tr>
+              <tr><td><code>apps/web/src/assets/images/next.svg</code>, <code>play.svg</code></td><td>轻量 SVG 图标资源。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <section id="packages" data-search-section>
+      <h2>共享包</h2>
+      <p class="section-note">这些包通过 workspace 方式被 <code>@soulmeet/web</code> 引用。</p>
+
+      <details open>
+        <summary><code>packages/shared</code></summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>package.json</code></td><td>共享类型包声明。</td></tr>
+              <tr><td><code>tsconfig.json</code></td><td>TypeScript 配置。</td></tr>
+              <tr><td><code>src/index.ts</code></td><td>统一导出 types 和 emotion config。</td></tr>
+              <tr><td><code>src/config/emotion.ts</code></td><td>情绪状态保持时长和 fallback label。</td></tr>
+              <tr><td><code>src/types/index.ts</code></td><td>共享类型统一导出。</td></tr>
+              <tr><td><code>src/types/messages.ts</code></td><td>前后端 DataChannel/ServerMessage 协议类型，包括助手文本、流式文本、任务进度、情绪、节点变更。</td></tr>
+              <tr><td><code>src/types/session.ts</code></td><td>Audience、SessionInfo、EmotionState 类型。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary><code>packages/i18n</code></summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>package.json</code></td><td>国际化包声明，peer dependency 为 <code>vue-i18n</code>。</td></tr>
+              <tr><td><code>tsconfig.json</code></td><td>TypeScript 配置。</td></tr>
+              <tr><td><code>src/index.ts</code></td><td>导出语言包和 <code>setupI18n</code>。</td></tr>
+              <tr><td><code>src/locales/zh-CN.ts</code></td><td>中文 UI 文案。</td></tr>
+              <tr><td><code>src/locales/en.ts</code></td><td>英文 UI 文案。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary><code>packages/stage-three</code></summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>package.json</code></td><td>3D 角色渲染包声明，依赖 Three、TresJS、VRM。</td></tr>
+              <tr><td><code>tsconfig.json</code></td><td>Vue/TS 类型检查配置。</td></tr>
+              <tr><td><code>package-lock.json</code></td><td>该包局部 npm 锁文件。</td></tr>
+              <tr><td><code>src/index.ts</code></td><td>导出 AvatarCanvas、AvatarFallback 和类型。</td></tr>
+              <tr><td><code>src/types/index.ts</code></td><td>角色状态、连接状态、VRM 加载结果、表情 transition 类型。</td></tr>
+              <tr><td><code>src/components/AvatarCanvas.vue</code></td><td>角色舞台入口，决定渲染 VRMModel 还是 fallback。</td></tr>
+              <tr><td><code>src/components/AvatarFallback.vue</code></td><td>3D 不可用时的静态 fallback。</td></tr>
+              <tr><td><code>src/components/VRMModel.vue</code></td><td>核心 3D 模型渲染组件，处理 VRM、镜头、动作、表情、状态事件。</td></tr>
+              <tr><td><code>src/composables/useCharacterState.ts</code></td><td>角色状态机，基于连接状态和 streaming message 推断 idle/speaking/fallback。</td></tr>
+              <tr><td><code>src/composables/vrm/core.ts</code></td><td>VRM 核心加载、表达式解析、材质 outline 处理。</td></tr>
+              <tr><td><code>src/composables/vrm/loader.ts</code></td><td>VRM 模型加载辅助。</td></tr>
+              <tr><td><code>src/composables/vrm/animation.ts</code></td><td>VRM 动画相关辅助。</td></tr>
+              <tr><td><code>src/composables/vrm/expression.ts</code></td><td>VRM 表情控制。</td></tr>
+              <tr><td><code>src/composables/vrm/useEmotionMotion.ts</code></td><td>基于情绪驱动动作、姿态和表情变化。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary><code>packages/ui</code></summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>package.json</code></td><td>基础 UI 包声明。</td></tr>
+              <tr><td><code>tsconfig.json</code></td><td>Vue/TS 类型检查配置。</td></tr>
+              <tr><td><code>package-lock.json</code></td><td>该包局部 npm 锁文件。</td></tr>
+              <tr><td><code>src/index.ts</code></td><td>UI 包统一导出。</td></tr>
+              <tr><td><code>src/components/index.ts</code></td><td>组件统一导出。</td></tr>
+              <tr><td><code>src/components/SButton.vue</code></td><td>基础按钮组件。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <section id="audiences" data-search-section>
+      <h2>角色、素材与领域知识</h2>
+      <p class="section-note">角色目录由后端发现，并通过 <code>/api/audiences</code> 提供给前端。</p>
+
+      <details open>
+        <summary>角色目录规则</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>路径</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>apps/backend/audiences/__init__.py</code></td><td>audiences 包标记。</td></tr>
+              <tr><td><code>apps/backend/audiences/Aini/persona.yaml</code></td><td>艾妮角色配置：温柔、梦幻、二次元陪伴感，含声音、问候、记忆策略。</td></tr>
+              <tr><td><code>apps/backend/audiences/Liyin/persona.yaml</code></td><td>璃音角色配置：温柔带神秘感，含 VRM、声音、问候、记忆策略。</td></tr>
+              <tr><td><code>apps/backend/audiences/Chuche/persona.yaml</code></td><td>初澈角色配置。</td></tr>
+              <tr><td><code>apps/backend/audiences/Liulan/persona.yaml</code></td><td>流岚角色配置。</td></tr>
+              <tr><td><code>apps/backend/audiences/Mengli/persona.yaml</code></td><td>萌莉角色配置。</td></tr>
+              <tr><td><code>apps/backend/audiences/Qingyu/persona.yaml</code></td><td>卿羽角色配置。</td></tr>
+              <tr><td><code>apps/backend/audiences/Xingche/persona.yaml</code></td><td>星澈角色配置。</td></tr>
+              <tr><td><code>apps/backend/audiences/Xueli/persona.yaml</code></td><td>雪砾角色配置。</td></tr>
+              <tr><td><code>apps/backend/audiences/Youyao/persona.yaml</code></td><td>幼爻角色配置。</td></tr>
+              <tr><td><code>apps/backend/audiences/Yuxian/persona.yaml</code></td><td>鸢弦角色配置。</td></tr>
+              <tr><td><code>*/assets/avatar.jpg</code> 或 <code>avatar.png</code></td><td>角色头像/立绘素材。</td></tr>
+              <tr><td><code>Aini/assets/head_avatar.png</code></td><td>艾妮聊天头像。</td></tr>
+              <tr><td><code>Aini/assets/model.vrm</code>, <code>Liyin/assets/model.vrm</code></td><td>3D VRM 角色模型。</td></tr>
+              <tr><td><code>Aini/background/1.png</code> 至 <code>5.png</code></td><td>艾妮聊天舞台背景图。</td></tr>
+              <tr><td><code>*/assets/.gitkeep</code></td><td>保持空素材目录被 Git 跟踪。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details open>
+        <summary>Aini 领域知识文档</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>Aini/domain/_index.yaml</code></td><td>领域知识索引，列出文件、标题、文号、日期、主题和摘要。</td></tr>
+              <tr><td><code>中共中央国务院关于深化养老服务改革发展的意见.md</code></td><td>养老服务改革发展政策资料。</td></tr>
+              <tr><td><code>临时救助制度意见.md</code></td><td>临时救助对象、标准、小额快救流程等资料。</td></tr>
+              <tr><td><code>元旦春节困难群众兜底保障.md</code></td><td>节日期间困难群众兜底保障资料。</td></tr>
+              <tr><td><code>养老服务机构从业人员职业道德准则.md</code></td><td>养老服务从业人员职业道德规范资料。</td></tr>
+              <tr><td><code>刚性支出困难家庭认定办法.md</code></td><td>刚性支出困难家庭认定条件与程序资料。</td></tr>
+              <tr><td><code>培育养老服务经营主体促进银发经济发展.md</code></td><td>银发经济和养老服务经营主体政策资料。</td></tr>
+              <tr><td><code>失能老年人养老服务消费补贴.md</code></td><td>中度以上失能老人养老服务消费补贴资料。</td></tr>
+              <tr><td><code>慈善信托信息公开办法.md</code></td><td>慈善信托信息公开规范资料。</td></tr>
+              <tr><td><code>长期护理保险失能等级评估管理办法.md</code></td><td>长期护理保险失能等级评估管理资料。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <section id="plugins" data-search-section>
+      <h2>Soul Companion 插件</h2>
+      <p class="section-note">插件负责确定性工具能力，后端 runtime 动态加载它并把结果转换为统一 artifact。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>文件</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>plugins/soul-companion/plugin.yaml</code></td><td>插件元数据、版本、描述、工具列表和工具配置。注意这里可能包含第三方服务配置，不应公开敏感值。</td></tr>
+            <tr><td><code>plugins/soul-companion/__init__.py</code></td><td>插件主体，包含 web search/extract、天气、POI 搜索、12306 车票、老人友好旅行规划、工具 schema 和 <code>register</code>。</td></tr>
+            <tr><td><code>apps/backend/plugins/soul-companion/__init__.py</code></td><td>后端目录内的插件副本或兼容入口，用于容器构建/迁移路径。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="deploy" data-search-section>
+      <h2>部署与基础设施</h2>
+      <p class="section-note">项目保留两类部署方式：Docker Compose 自托管，以及 Railway 后端 + Vercel 前端。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>文件</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>deploy/README.md</code></td><td>Docker 部署说明，说明当前只保留 Web 前端和 FastAPI 后端。</td></tr>
+            <tr><td><code>deploy/docker-compose.dev.yml</code></td><td>本地 Docker 开发环境，包含 db、backend、web、stats 服务。</td></tr>
+            <tr><td><code>deploy/docker-compose.prod.yml</code></td><td>生产 compose，包含 db、coturn、backend、web。</td></tr>
+            <tr><td><code>deploy/deploy.sh</code></td><td>构建并推送后端和前端镜像到阿里云镜像仓库。</td></tr>
+            <tr><td><code>deploy/nginx.conf</code></td><td>生产 Nginx 配置，HTTPS、SPA fallback、<code>/api/</code> 反向代理、静态缓存和安全头。</td></tr>
+            <tr><td><code>deploy/docker/Dockerfile.web</code></td><td>前端镜像构建，先用 Node/pnpm 构建，再用 Nginx 提供静态站点。</td></tr>
+            <tr><td><code>deploy/docker/entrypoint.sh</code></td><td>Web 容器入口，证书不存在时生成自签名证书，然后启动 Nginx。</td></tr>
+            <tr><td><code>deploy/docker/nginx.conf</code></td><td>Web 镜像内置 Nginx 配置，代理到本机后端。</td></tr>
+            <tr><td><code>deploy/.env</code></td><td>部署环境变量，可能包含敏感配置，不应公开。</td></tr>
+            <tr><td><code>deploy/certs/fullchain.pem</code>, <code>privkey.pem</code></td><td>部署证书和私钥，属于敏感文件。</td></tr>
+            <tr><td><code>docs/40轮对话能力排查报告.html</code></td><td>历史排查报告。</td></tr>
+            <tr><td><code>docs/vercel-railway-deployment-guide.html</code></td><td>Vercel/Railway 部署指南 HTML。</td></tr>
+            <tr><td><code>docs/soulbot-folder-map.html</code></td><td>当前文件夹与文件用途地图。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="runtime" data-search-section>
+      <h2>运行数据、缓存与生成文件</h2>
+      <p class="section-note">这些内容通常不需要参与业务开发评审，重点是知道它们从哪里来、能否删除、是否敏感。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>路径/模式</th><th>用途</th><th>处理建议</th></tr></thead>
+          <tbody>
+            <tr><td><code>data/soulmeet_kv.sqlite3</code></td><td>SQLite KV 本地数据库。</td><td>运行数据，备份后再删除。</td></tr>
+            <tr><td><code>data/soulmeet_kv.sqlite3-wal</code>, <code>-shm</code></td><td>SQLite WAL 和共享内存辅助文件。</td><td>数据库运行产物。</td></tr>
+            <tr><td><code>data/soul_reminders.json</code></td><td>提醒调度任务本地存储。</td><td>运行数据。</td></tr>
+            <tr><td><code>memories/sessions/&lt;session_id&gt;/&lt;timestamp&gt;/Aini.md|json</code></td><td>Aini 会话记忆文件，Markdown 便于阅读，JSON 便于结构化使用。</td><td>包含用户对话信息，按隐私数据处理。</td></tr>
+            <tr><td><code>memories/sessions/.../Liyin.md|json</code></td><td>Liyin 会话记忆文件。</td><td>包含用户对话信息，按隐私数据处理。</td></tr>
+            <tr><td><code>log/*.log</code></td><td>历史运行日志，按时间命名或按服务命名。</td><td>调试用，可能含请求文本。</td></tr>
+            <tr><td><code>log/backend.log</code>, <code>web.log</code>, <code>db.log</code></td><td><code>start-dev.sh</code> 当前/近期服务日志。</td><td>调试用。</td></tr>
+            <tr><td><code>log/dev.pids</code></td><td>开发脚本记录的进程 pid。</td><td>运行临时文件。</td></tr>
+            <tr><td><code>node_modules/</code>, <code>apps/web/node_modules/</code>, <code>packages/*/node_modules/</code></td><td>Node 第三方依赖。</td><td>可通过 <code>pnpm install</code> 重建。</td></tr>
+            <tr><td><code>.venv/</code>, <code>.venv-test/</code></td><td>Python 虚拟环境。</td><td>可通过依赖安装重建。</td></tr>
+            <tr><td><code>__pycache__/</code>, <code>*/__pycache__/</code></td><td>Python 字节码缓存。</td><td>可安全重建。</td></tr>
+            <tr><td><code>.pytest_cache/</code></td><td>pytest 缓存。</td><td>可安全重建。</td></tr>
+            <tr><td><code>.DS_Store</code></td><td>macOS Finder 元数据。</td><td>无业务含义。</td></tr>
+            <tr><td><code>.understand-anything/knowledge-graph.json</code></td><td>代码知识图谱数据。</td><td>工具生成，可重建。</td></tr>
+            <tr><td><code>.understand-anything/viewer.html</code></td><td>知识图谱可视化 viewer。</td><td>工具生成。</td></tr>
+            <tr><td><code>.agents/skills/**</code></td><td>本地 agent 技能说明和脚本模板。</td><td>开发辅助资料。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="notes">
+      <h2>维护注意</h2>
+      <div class="callout">
+        <strong>敏感文件：</strong>
+        <code>.env</code>、<code>deploy/.env</code>、<code>certs/*.pem</code>、<code>deploy/certs/*.pem</code>、日志、记忆文件、插件配置里的第三方服务配置，都应按敏感信息处理。
+      </div>
+      <div class="callout">
+        <strong>开发优先阅读路径：</strong>
+        前端聊天先读 <code>apps/web/src/pages/chat.vue</code>、<code>components/chat/DesktopChatLayout.vue</code>、<code>components/chat/MobileChatLayout.vue</code>；
+        后端聊天先读 <code>apps/backend/core/conversation/runtime_session.py</code>、<code>apps/backend/core/soul_companion/runtime.py</code>、<code>apps/backend/core/soul_companion/agent_loop.py</code>；
+        实时语音先读 <code>apps/backend/core/api/webrtc.py</code> 和 <code>apps/web/src/composables/useWebRTC.ts</code>。
+      </div>
+      <div class="callout">
+        <strong>设计约束：</strong>
+        聊天 UI 改动应保留 Aini 角色、语音控制、天气控制、侧栏、输入框和对话详情面板；风格保持柔和、梦幻、圆润、玻璃质感，移动端不能横向溢出。
+      </div>
+    </section>
+
+    <footer>
+      生成位置：<code>docs/soulbot-folder-map.html</code>。可直接用浏览器打开，也可作为项目交接文档维护。
+    </footer>
+  </main>
+
+  <script>
+    const input = document.getElementById('searchInput')
+    const rows = Array.from(document.querySelectorAll('tbody tr'))
+    const details = Array.from(document.querySelectorAll('details'))
+
+    function normalize(value) {
+      return String(value || '').trim().toLowerCase()
+    }
+
+    function applyFilter() {
+      const query = normalize(input.value)
+      rows.forEach((row) => {
+        const text = normalize(row.textContent)
+        row.classList.toggle('hidden-by-filter', query && !text.includes(query))
+      })
+
+      details.forEach((detail) => {
+        if (!query) return
+        const visibleRows = detail.querySelectorAll('tbody tr:not(.hidden-by-filter)')
+        detail.open = visibleRows.length > 0
+      })
+    }
+
+    input.addEventListener('input', applyFilter)
+  </script>
+</body>
+</html>

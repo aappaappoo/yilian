@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>40 轮对话能力排查报告 — Soulbot 架构匹配度评估</title>
+<style>
+  :root {
+    --ok: #1a7f37;
+    --ok-bg: #e6f4ea;
+    --warn: #9a6700;
+    --warn-bg: #fff8e1;
+    --fail: #cf222e;
+    --fail-bg: #ffebe9;
+    --ink: #1f2328;
+    --muted: #57606a;
+    --line: #d0d7de;
+    --accent: #0969da;
+    --bg: #ffffff;
+    --soft: #f6f8fa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    margin: 0;
+    line-height: 1.7;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; border-bottom: 2px solid var(--line); padding-bottom: 12px; }
+  h2 { font-size: 20px; margin-top: 44px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  h3 { font-size: 16px; margin-top: 28px; }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .verdict {
+    background: var(--warn-bg);
+    border: 1px solid #d4a72c;
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-size: 15px;
+  }
+  .verdict strong { color: var(--warn); }
+  .stat-row { display: flex; gap: 14px; margin: 20px 0; flex-wrap: wrap; }
+  .stat {
+    flex: 1; min-width: 140px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .stat .num { font-size: 30px; font-weight: 700; }
+  .stat .label { font-size: 13px; color: var(--muted); }
+  .stat.ok .num { color: var(--ok); }
+  .stat.warn .num { color: var(--warn); }
+  .stat.fail .num { color: var(--fail); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 16px 0; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; vertical-align: top; text-align: left; }
+  th { background: var(--soft); white-space: nowrap; }
+  td.turn { text-align: center; font-weight: 600; white-space: nowrap; }
+  .badge {
+    display: inline-block; padding: 1px 10px; border-radius: 12px;
+    font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  }
+  .b-ok   { background: var(--ok-bg);   color: var(--ok); }
+  .b-warn { background: var(--warn-bg); color: var(--warn); }
+  .b-fail { background: var(--fail-bg); color: var(--fail); }
+  tr.r-fail td { background: #fff5f5; }
+  tr.r-warn td { background: #fffdf5; }
+  .gap {
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--fail);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    background: #fffafa;
+  }
+  .gap.amber { border-left-color: var(--warn); background: #fffdf6; }
+  .gap h3 { margin: 0 0 8px; }
+  .gap .turns { font-size: 13px; color: var(--muted); }
+  code {
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 12.5px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+  }
+  .note { color: var(--muted); font-size: 13px; }
+  ul { padding-left: 22px; }
+  .dep-table td:first-child { white-space: nowrap; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>40 轮对话能力排查报告</h1>
+<div class="meta">
+  评估对象：Soulbot 当前架构（批次一、二已完成；批次三、四、五未实施）&nbsp;|&nbsp;
+  参照：<code>docs/Harness稳定性改造计划与验收标准.md</code>&nbsp;|&nbsp;
+  日期：2026-06-12
+</div>
+
+<div class="verdict">
+  <strong>总体结论：不能直接说"可以"。</strong>
+  40 轮中约 18 轮现架构 + 已规划批次完成后可直接满足，约 17 轮存在依赖或风险，
+  <strong>5 轮（轮 23、32、33、34 及其衍生轮）涉及当前架构与改造计划都未覆盖的真实缺口</strong>。
+  另有 7 个轻量轮（≤3–5 秒）的性能要求与改造计划自身的延迟目标（boundary p95 &lt; 5s）存在冲突。
+  这套 40 轮用例若现在实跑，预计在轮 5（延迟）、轮 14/17（跨任务槽位继承）、轮 23（目的地级联切换）、
+  轮 32–34（批量清理 / 跨任务聚合 / 机票误路由）处出现系统性失败。
+</div>
+
+<div class="stat-row">
+  <div class="stat ok"><div class="num">18</div><div class="label">✅ 可满足（含依赖批次三/四完成）</div></div>
+  <div class="stat warn"><div class="num">17</div><div class="label">⚠️ 有风险 / 有前置依赖</div></div>
+  <div class="stat fail"><div class="num">5</div><div class="label">❌ 当前架构与计划均未覆盖</div></div>
+</div>
+
+<h2>一、五个结构性缺口（按严重程度排序）</h2>
+
+<div class="gap">
+  <h3>缺口 1：跨任务级联失效 —— 改目的地后无法批量刷新关联证据</h3>
+  <div class="turns">影响轮次：23、24、29（部分波及 25–30 的偏好迁移）</div>
+  <p>
+    轮 23"改泉州，刷新厦门相关的天气、景点、美食、住宿证据，保留出发地/天数/偏好"，
+    需要的语义是：<strong>共享槽位（destination）变更 → 关联任务的旧 evidence 批量标记失效 → 偏好（known_inputs 中的非地点项）迁移到新上下文</strong>。
+    当前架构中 Frame / Trace 按任务隔离，任务之间没有"共享槽位"概念；
+    改造计划的 lifecycle 操作只有 <code>pause / resume / cancel / pause_all / list_tasks</code>，
+    五个批次中没有任何一项覆盖"槽位变更引发的证据级联失效"。
+    <strong>这是 40 轮中唯一需要新增架构设计的需求</strong>，不是实现工作量问题，而是语义模型缺位。
+  </p>
+</div>
+
+<div class="gap">
+  <h3>缺口 2：按主题批量取消 —— "把厦门相关的都不要了"无执行语义</h3>
+  <div class="turns">影响轮次：32</div>
+  <p>
+    当前 <code>lifecycle_op=cancel</code> 仅支持单个 <code>lifecycle_target</code>，<code>pause_all</code> 是全量操作。
+    "取消满足某条件的任务子集"（所有厦门相关任务，但保留泉州任务）介于两者之间：
+    boundary 决策契约里 <code>selected_task_ids</code> 字段理论上能表达多目标，
+    但下游没有"对 selected_task_ids 逐个 cancel"的执行路径。补齐成本低（扩展 lifecycle 执行器即可），但目前没有。
+  </p>
+</div>
+
+<div class="gap">
+  <h3>缺口 3：跨任务证据聚合 —— 最终攻略无法整合车票/住宿/美食任务的结果</h3>
+  <div class="turns">影响轮次：33、37、39</div>
+  <p>
+    轮 33"整理最终版，包含动车、住宿、美食、路线"要求从<strong>多个独立任务</strong>（车票任务、住宿任务、美食任务）各自的
+    Trace/artifact 中取证据，合成一份方案。<code>itinerary.compose</code> 技能存在且定位正确（"把已有结果编排行程"），
+    但它运行在单个任务的上下文里，<strong>没有跨任务 artifact 共享通道</strong>；FinalResponder 同样是单任务视角。
+    轮 37 的预算估算（汇总动车票价 + 住宿价格 + 餐饮）依赖同一机制。
+    需要设计"会话级证据视图"或"任务间 artifact 引用"，计划中未覆盖。
+  </p>
+</div>
+
+<div class="gap amber">
+  <h3>缺口 4：轻量轮延迟预算冲突 —— ≤3–5 秒的轮次结构性超时</h3>
+  <div class="turns">影响轮次：5（≤3s）、18、22、26、36、40（≤5s）、31（≤8s 边缘）</div>
+  <p>
+    这些轮的链路是：boundary LLM 判断 → 路由到闲聊 → 闲聊 LLM 生成回复，<strong>至少两次串行 LLM 调用</strong>。
+    改造计划给 boundary 的目标本身就是 p95 &lt; 5 秒——意味着光路由这一步就可能吃掉全部预算。
+    要满足 ≤3 秒，必须做计划之外的事：boundary 换小模型/快模型、
+    或 boundary 与闲聊回复<strong>并行投机执行</strong>（闲聊回复先生成，boundary 判定为任务时丢弃）。
+    这不是缺陷，是计划目标与本测试要求之间的硬冲突，需要明确取舍。
+  </p>
+</div>
+
+<div class="gap">
+  <h3>缺口 5：机票拒绝路径缺失 + 关键词规则会主动误路由</h3>
+  <div class="turns">影响轮次：34</div>
+  <p>
+    要求：明确回答"暂不支持机票"，不能编造航班、<strong>不能误转动车</strong>。
+    EffectiveSkillCatalog 中确实没有机票技能，但当前没有显式的"识别为任务 → 无匹配能力 → 明确告知不支持"的回复路径，
+    最可能的实际行为是落入闲聊兜底由 LLM 自由发挥（编造风险）。
+    更直接的问题：<code>goal_boundary.py</code> 的 <code>_task_kind_from_text</code>
+    将含"票"的输入判为 train 类——<strong>"机票"包含"票"，确定性规则会把这一轮误绑到已有动车任务</strong>，
+    恰好命中本轮明令禁止的失败模式。这是此前评审指出的"关键词规则过拟合"的具体落点。
+  </p>
+</div>
+
+<h2>二、批次依赖关系</h2>
+<p>下列轮次的"✅/⚠️"判断<strong>以对应批次完成为前提</strong>（当前仅批次一、二完成）：</p>
+<table class="dep-table">
+  <tr><th>前置批次</th><th>状态</th><th>依赖它的轮次</th><th>依赖的能力</th></tr>
+  <tr>
+    <td>批次三（任务状态机）</td>
+    <td><span class="badge b-fail">未实施</span></td>
+    <td>6、8、9、13、15、16、21、35</td>
+    <td>target_task_id 非焦点任务切换、focus 显式指针、paused 状态、known_inputs 跨轮保持</td>
+  </tr>
+  <tr>
+    <td>批次四（规划收敛 + 分支契约）</td>
+    <td><span class="badge b-fail">未实施</span></td>
+    <td>1、4、12、20、30</td>
+    <td>缺槽零 LLM 直接 ask、branch 契约 + weather evidence 前置、偏好变更触发重查</td>
+  </tr>
+  <tr>
+    <td>批次五（持久化）</td>
+    <td><span class="badge b-warn">实现已写，未接线</span></td>
+    <td>本测试为单会话，不直接依赖；生产必需</td>
+    <td>SQLiteKVStore 已存在于 <code>core/tools/primitives/kv_store.py</code>，生产装配点未切换</td>
+  </tr>
+</table>
+
+<h2>三、逐轮排查明细</h2>
+<p class="note">
+  状态含义：✅ = 现有/已规划机制可满足（含依赖批次三/四完成）；⚠️ = 链路存在但有具体风险点；❌ = 架构与计划均未覆盖。
+</p>
+<table>
+  <tr>
+    <th style="width:36px">轮</th>
+    <th style="width:220px">用户输入（摘要）</th>
+    <th style="width:64px">性能</th>
+    <th style="width:76px">判定</th>
+    <th>排查依据</th>
+  </tr>
+  <tr><td class="turn">1</td><td>周末想出去玩，帮我安排</td><td>≤8s</td><td><span class="badge b-ok">✅</span></td><td>缺槽追问是成熟链路（NeedInput → ask）。批次四的 simple_ask 规则基线落地后可零 LLM 规划直达，8 秒可满足。</td></tr>
+  <tr><td class="turn">2</td><td>福州出发、海边、2天1晚</td><td>≤8s</td><td><span class="badge b-ok">✅</span></td><td>continue_focus_task 补槽 + 推荐目的地由规划 LLM 给建议，单次调用内可完成。</td></tr>
+  <tr><td class="turn">3</td><td>定厦门，海边海鲜，不想太累</td><td>≤60s</td><td><span class="badge b-ok">✅</span></td><td><code>travel_itinerary.plan</code> 存在；偏好写入 frame.known_inputs。批次四 D4 验收（槽位绑定修复）正是此场景。</td></tr>
+  <tr class="r-warn"><td class="turn">4</td><td>明天天气，下雨就少安排户外</td><td>≤60s</td><td><span class="badge b-warn">⚠️</span></td><td>天气条件分支依赖批次四的 branch 契约 + evidence 前置（计划 Case F 同构）。当前 constrain 内的 LLM 分支链路慢且未规则化。</td></tr>
+  <tr class="r-warn"><td class="turn">5</td><td>先问个别的：一个人去尴尬吗？</td><td>≤3s</td><td><span class="badge b-warn">⚠️</span></td><td>路由（conversation_only 保留任务）设计支持；<strong>≤3s 结构性超时</strong>——boundary（目标 p95&lt;5s）+ 闲聊生成两次串行 LLM。见缺口 4。</td></tr>
+  <tr><td class="turn">6</td><td>继续刚才那个厦门计划</td><td>≤20s</td><td><span class="badge b-ok">✅</span></td><td>批次二 resume 语义 + 批次三 known_inputs 完整恢复（计划 C3 验收）。依赖批次三。</td></tr>
+  <tr><td class="turn">7</td><td>查福州→厦门明天最早动车</td><td>≤30s</td><td><span class="badge b-ok">✅</span></td><td>start_new_task → <code>train_ticket.query</code>，provider/parser/filters/presenter 链路成熟。</td></tr>
+  <tr><td class="turn">8</td><td>换成上午9点之后的</td><td>≤30s</td><td><span class="badge b-ok">✅</span></td><td>绑定车票任务改时间槽 + filters 重筛。依赖批次三的任务绑定不漂移。</td></tr>
+  <tr><td class="turn">9</td><td>二等座，不要太贵</td><td>≤30s</td><td><span class="badge b-ok">✅</span></td><td>同上，座席/价格是 train_ticket filters 已支持的维度。</td></tr>
+  <tr class="r-warn"><td class="turn">10</td><td>第一天晚上找海鲜吃</td><td>≤15s</td><td><span class="badge b-warn">⚠️</span></td><td>新建美食任务需<strong>从攻略任务继承 destination=厦门</strong>。无显式跨任务槽位继承机制，靠 8 轮对话窗口（轮 3 提及厦门，恰在窗口边缘）。见缺口 1 的同源问题。</td></tr>
+  <tr><td class="turn">11</td><td>思明区附近，别太贵</td><td>≤15s</td><td><span class="badge b-ok">✅</span></td><td>绑定美食任务补 anchor + 价格偏好，<code>local_search.poi</code> 支持。</td></tr>
+  <tr class="r-warn"><td class="turn">12</td><td>有没有小火锅/海鲜火锅？</td><td>≤15s</td><td><span class="badge b-warn">⚠️</span></td><td>品类变更必须<strong>触发重查而非沿用旧结果</strong>。依赖批次四"偏好变更 → 证据失效 → 重新 call"的 obligation 规则，当前由 LLM 审计兜着、不稳定。</td></tr>
+  <tr class="r-warn"><td class="turn">13</td><td>火锅不要了，回普通海鲜排档</td><td>≤15s</td><td><span class="badge b-warn">⚠️</span></td><td>同轮 12：撤销式偏好修改 + 不得继续推荐火锅，需要证据失效语义。</td></tr>
+  <tr class="r-warn"><td class="turn">14</td><td>住宿预算300，离海边近</td><td>≤15s</td><td><span class="badge b-warn">⚠️</span></td><td>新建住宿任务（<code>lodging_query</code> 存在），但城市继承：轮 3 已在 8 轮对话窗口之外，<strong>必须从其他任务 frame 取 destination</strong>——该机制不存在。见缺口 1。</td></tr>
+  <tr><td class="turn">15</td><td>400以内也可以</td><td>≤15s</td><td><span class="badge b-ok">✅</span></td><td>绑定住宿任务放宽预算槽，不重问城市（批次三 known_inputs 保持）。</td></tr>
+  <tr><td class="turn">16</td><td>不想住太吵的</td><td>≤15s</td><td><span class="badge b-ok">✅</span></td><td>主观偏好叠加；"安静"类语义约束由 ResultVerifier 保留的 1 次 LLM 校验覆盖（批次四 5.3）。</td></tr>
+  <tr class="r-warn"><td class="turn">17</td><td>景点也看看，别太商业化</td><td>≤20s</td><td><span class="badge b-warn">⚠️</span></td><td>scenic 技能存在；城市继承问题同轮 14。</td></tr>
+  <tr class="r-warn"><td class="turn">18</td><td>鼓浪屿是不是人很多？</td><td>≤5s</td><td><span class="badge b-warn">⚠️</span></td><td>"景点咨询不跑攻略"的路由边界微妙（提到任务相关地名但属咨询）；≤5s 延迟紧张，见缺口 4。</td></tr>
+  <tr><td class="turn">19</td><td>鼓浪屿保留，别安排太久</td><td>≤10s</td><td><span class="badge b-ok">✅</span></td><td>绑定攻略任务写入行程偏好，不触发工具调用。</td></tr>
+  <tr class="r-warn"><td class="turn">20</td><td>明天下雨鼓浪屿换室内</td><td>≤60s</td><td><span class="badge b-warn">⚠️</span></td><td>条件分支 + 不得无证据判断下雨 = 批次四 D6 验收同构。依赖批次四完成。</td></tr>
+  <tr><td class="turn">21</td><td>住宿再筛：优先离地铁近</td><td>≤15s</td><td><span class="badge b-ok">✅</span></td><td>批次三 target_task_id 切回住宿任务，叠加偏好且保留预算400/安静（C3 验收同构）。依赖批次三。</td></tr>
+  <tr class="r-warn"><td class="turn">22</td><td>突然觉得厦门人太多了</td><td>≤5s</td><td><span class="badge b-warn">⚠️</span></td><td>决策犹豫 → 不立即改目的地：boundary 的 conversation_only/ambiguous 设计支持；≤5s 延迟紧张。</td></tr>
+  <tr class="r-fail"><td class="turn">23</td><td>改泉州，2天1晚，福州出发，海边海鲜</td><td>≤60s</td><td><span class="badge b-fail">❌</span></td><td><strong>缺口 1 核心轮</strong>：destination 变更需级联失效厦门相关天气/景点/美食/住宿证据并迁移偏好。无共享槽位概念、无级联失效机制，计划五个批次均未覆盖。</td></tr>
+  <tr class="r-warn"><td class="turn">24</td><td>福州→泉州动车重新查</td><td>≤30s</td><td><span class="badge b-warn">⚠️</span></td><td>绑定车票任务改 destination 可行，但"不能沿用福州→厦门旧结果"依赖证据失效的强制性（缺口 1 的单任务子集，verifier 可部分兜住）。</td></tr>
+  <tr><td class="turn">25</td><td>泉州适合一个人慢慢逛的地方</td><td>≤20s</td><td><span class="badge b-ok">✅</span></td><td>scenic / local_search 查询，偏好正常传递。</td></tr>
+  <tr><td class="turn">26</td><td>西街会不会太商业？</td><td>≤5s</td><td><span class="badge b-ok">✅</span></td><td>景点咨询基于已有 evidence 回答；延迟紧张但 5s 内有机会（无工具调用）。</td></tr>
+  <tr><td class="turn">27</td><td>西街放晚上，白天海边/蟳埔村</td><td>≤20s</td><td><span class="badge b-ok">✅</span></td><td>行程偏好写入攻略任务，无工具调用。</td></tr>
+  <tr><td class="turn">28</td><td>泉州海鲜，不要游客店</td><td>≤15s</td><td><span class="badge b-ok">✅</span></td><td><code>local_search.poi</code>；"避开游客店"为主观约束，ResultVerifier 语义校验覆盖。</td></tr>
+  <tr class="r-warn"><td class="turn">29</td><td>住宿400以内、安静、交通方便</td><td>≤15s</td><td><span class="badge b-warn">⚠️</span></td><td>歧义：是旧住宿任务改城市还是新建任务？若改旧任务则撞缺口 1（厦门住宿证据需失效）；若新建则需偏好迁移。两条路都没有干净的语义。</td></tr>
+  <tr class="r-warn"><td class="turn">30</td><td>泉州明天下雨就少安排户外</td><td>≤60s</td><td><span class="badge b-warn">⚠️</span></td><td>同轮 4/20，依赖批次四分支契约。</td></tr>
+  <tr class="r-warn"><td class="turn">31</td><td>泉州和厦门哪个更适合我？</td><td>≤8s</td><td><span class="badge b-warn">⚠️</span></td><td>对比建议需<strong>汇总多个任务的偏好与证据</strong>且不查工具——FinalResponder 是单任务视角，跨任务上下文供给不完整（缺口 3 的轻量版）。</td></tr>
+  <tr class="r-fail"><td class="turn">32</td><td>定泉州，厦门相关的都不要了</td><td>≤10s</td><td><span class="badge b-fail">❌</span></td><td><strong>缺口 2 核心轮</strong>：按主题取消任务子集。cancel 单目标、pause_all 全量，无子集批量取消的执行语义。</td></tr>
+  <tr class="r-fail"><td class="turn">33</td><td>整理最终版：动车+住宿+美食+路线</td><td>≤60s</td><td><span class="badge b-fail">❌</span></td><td><strong>缺口 3 核心轮</strong>：需聚合车票/住宿/美食三个独立任务的 artifact。<code>itinerary.compose</code> 存在但无跨任务证据通道。</td></tr>
+  <tr class="r-fail"><td class="turn">34</td><td>查福州到泉州的机票</td><td>≤10s</td><td><span class="badge b-fail">❌</span></td><td><strong>缺口 5 核心轮</strong>：无"识别任务但无能力 → 显式拒绝"路径，且 <code>_task_kind_from_text</code> 的"票"关键词会把"机票"误判为 train 类、误绑动车任务——正是本轮禁止的行为。</td></tr>
+  <tr><td class="turn">35</td><td>算了还是动车，攻略保留动车</td><td>≤20s</td><td><span class="badge b-ok">✅</span></td><td>绑定回车票/攻略任务，无新查询。依赖批次三。</td></tr>
+  <tr><td class="turn">36</td><td>简短说这趟行程适不适合我</td><td>≤5s</td><td><span class="badge b-ok">✅</span></td><td>不查工具、基于已有偏好总结；延迟紧张但无工具调用，可达。</td></tr>
+  <tr class="r-warn"><td class="turn">37</td><td>预算800够吗？</td><td>≤10s</td><td><span class="badge b-warn">⚠️</span></td><td>估算需汇总动车票价 + 住宿价 + 餐饮的跨任务证据（缺口 3）；"说明是粗略估算、不编造总价"靠 FinalResponder 约束，可控但证据供给不全。</td></tr>
+  <tr><td class="turn">38</td><td>住宿压低，吃饭正常</td><td>≤15s</td><td><span class="badge b-ok">✅</span></td><td>分别更新住宿任务预算槽、保留美食偏好，批次三任务绑定支持。</td></tr>
+  <tr class="r-warn"><td class="turn">39</td><td>重新整理省钱不委屈版</td><td>≤60s</td><td><span class="badge b-warn">⚠️</span></td><td>同轮 33 的跨任务聚合（缺口 3），叠加"不切回厦门"依赖轮 32 的清理已正确执行。</td></tr>
+  <tr><td class="turn">40</td><td>记住重点：泉州/2天1晚/动车/海鲜/不要太累</td><td>≤5s</td><td><span class="badge b-ok">✅</span></td><td>不查工具，输出已确认偏好清单；list_tasks/任务摘要机制可支撑。</td></tr>
+</table>
+
+<h2>四、要让这 40 轮全部通过，需要补什么</h2>
+<ul>
+  <li><strong>新增设计（计划外）：</strong>
+    <ul>
+      <li><strong>共享槽位与证据级联失效</strong>（缺口 1）：为任务引入"共享上下文槽位"（destination 等），变更时标记关联任务 evidence 为 stale 并保留偏好。这是最大的一块设计工作，建议作为"批次六"立项。</li>
+      <li><strong>会话级证据视图</strong>（缺口 3）：给 <code>itinerary.compose</code> / FinalResponder 提供跨任务 artifact 只读通道，支撑最终整合与预算估算。</li>
+      <li><strong>轻量轮快速通道</strong>（缺口 4）：boundary 用快模型，或与闲聊回复并行投机执行，否则 ≤3–5s 的 7 个轮次必然超时。</li>
+    </ul>
+  </li>
+  <li><strong>小改动（一周内量级）：</strong>
+    <ul>
+      <li>lifecycle 执行器支持对 <code>selected_task_ids</code> 子集批量 cancel（缺口 2）。</li>
+      <li>新增"任务意图但无匹配能力 → 显式不支持回复"路径，并修复 <code>_task_kind_from_text</code> 的"票"误匹配（缺口 5）——这也再次印证此前评审的结论：goal_boundary 的关键词规则应当删除而非扩充。</li>
+    </ul>
+  </li>
+  <li><strong>先决条件：</strong>按计划完成批次三（状态机）和批次四（分支契约 + 规划收敛），它们是 40 轮中约 13 轮的前置依赖；批次五接线（生产用 SQLiteKVStore）虽不阻塞本测试，但为生产必需。</li>
+</ul>
+
+<p class="note">
+  本报告为静态架构排查结论，未实跑 40 轮用例；逐轮判定基于当前代码
+  （<code>goal_boundary.py</code>、<code>action_loop.py</code>、<code>runtime_session.py</code>、技能包目录）
+  与改造计划文档的交叉核对。建议在批次三、四完成后将本表纳入
+  <code>tests/harness_boundary_policy_stability_runner.py</code> 的 case 机制实跑验证，
+  并注意：<strong>本表用例措辞不得进入生产代码的关键词规则</strong>，否则评测失去意义。
+</p>
+
+</div>
+</body>
+</html>

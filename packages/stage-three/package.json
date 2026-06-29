@@ -1,0 +1,29 @@
+{
+  "name": "@soulmeet/stage-three",
+  "version": "0.1.0",
+  "description": "Soulmeet 3D 角色呈现系统 — TresJS + VRM",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^3.5.0",
+    "@tresjs/core": "^5.5.0",
+    "@vueuse/core": "^14.0.0",
+    "three": "^0.183.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.0",
+    "typescript": "^5.5.4",
+    "vue": "^3.5.13",
+    "vue-tsc": "^2.2.8"
+  }
+}

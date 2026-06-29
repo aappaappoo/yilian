@@ -1,0 +1,22 @@
+{
+  "name": "soulmeet",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Soulmeet 情感陪伴语音机器人平台 - 前端 Monorepo",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @soulmeet/web dev",
+    "build:web": "pnpm --filter @soulmeet/web build",
+    "preview:web": "pnpm --filter @soulmeet/web preview",
+    "build:packages": "pnpm --filter @soulmeet/shared --filter @soulmeet/ui --filter @soulmeet/i18n --filter @soulmeet/stage-three build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.5.4"
+  }
+}

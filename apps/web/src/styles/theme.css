@@ -1,0 +1,26 @@
+:root {
+  --soulmeet-font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Tsukushi A Round Gothic", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --soulmeet-chat-content-font-size: 15px;
+  --soulmeet-chat-content-compact-font-size: 14px;
+  --soulmeet-chat-user-font-size: 14.75px;
+}
+
+html,
+body,
+#app {
+  font-family: var(--soulmeet-font-family);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--soulmeet-font-family);
+}

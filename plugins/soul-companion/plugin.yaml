@@ -1,0 +1,12 @@
+name: soul-companion
+version: 1.0.0
+description: "Chinese elderly companion travel assistant tools: weather, train tickets, local food/lodging/scenic search, and gentle trip planning."
+kind: standalone
+config:
+  amap_api_key: ""
+provides_tools:
+  - weather
+  - train_tickets
+  - train_ticket_price
+  - local_search
+  - health_query

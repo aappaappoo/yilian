@@ -1,0 +1,21 @@
+{
+  "name": "@soulmeet/i18n",
+  "version": "0.1.0",
+  "description": "Soulmeet 国际化语言包",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "peerDependencies": {
+    "vue-i18n": "^11.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vue-i18n": "^11.1.2"
+  }
+}

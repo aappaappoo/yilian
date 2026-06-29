@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Soulbot 项目整体架构说明</title>
+  <style>
+    :root {
+      --bg: #fff7fc;
+      --paper: rgba(255, 255, 255, 0.82);
+      --paper-soft: rgba(255, 255, 255, 0.62);
+      --text: #31273a;
+      --muted: #75687d;
+      --purple: #7352c6;
+      --pink: #d783c8;
+      --line: rgba(168, 127, 207, 0.28);
+      --shadow: 0 24px 70px rgba(120, 77, 151, 0.14);
+      --code: rgba(115, 82, 198, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(238, 186, 239, 0.42), transparent 28rem),
+        radial-gradient(circle at 86% 8%, rgba(201, 208, 255, 0.34), transparent 24rem),
+        linear-gradient(145deg, #fffafd 0%, #f8efff 54%, #ffffff 100%);
+      font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.72;
+    }
+
+    main {
+      width: min(1160px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 42px 0 64px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    header {
+      padding: 36px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 246, 254, 0.72));
+    }
+
+    section {
+      margin-top: 26px;
+      padding: 28px;
+      box-shadow: 0 18px 50px rgba(126, 85, 160, 0.08);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--pink);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    h1,
+    h2,
+    h3 {
+      color: var(--purple);
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 50px);
+      line-height: 1.18;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 24px;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 18px;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    .summary {
+      max-width: 880px;
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    code {
+      border-radius: 8px;
+      background: var(--code);
+      color: #5d3ca7;
+      padding: 2px 7px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 13px 15px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #553b86;
+      background: rgba(242, 227, 252, 0.86);
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    ul,
+    ol {
+      margin: 10px 0 0;
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 8px 0;
+    }
+
+    .note {
+      margin: 16px 0;
+      border: 1px solid rgba(215, 131, 200, 0.34);
+      border-left: 5px solid var(--pink);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 16px 18px;
+      color: #584163;
+    }
+
+    .layer-grid,
+    .flow-grid,
+    .card-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .layer-grid {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .layer-card,
+    .flow-card,
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper-soft);
+      padding: 16px;
+    }
+
+    .layer-card strong,
+    .flow-card strong,
+    .card strong {
+      display: block;
+      color: #6547a8;
+      margin-bottom: 6px;
+    }
+
+    .architecture {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .arch-row {
+      display: grid;
+      grid-template-columns: 190px 1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .arch-label,
+    .arch-box {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 14px;
+    }
+
+    .arch-label {
+      color: #5a418d;
+      font-weight: 700;
+      background: rgba(244, 231, 253, 0.78);
+    }
+
+    .arch-box {
+      color: #4b3d55;
+    }
+
+    .arrow {
+      margin: 8px 0;
+      color: var(--pink);
+      font-weight: 700;
+    }
+
+    .compact {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        width: min(100vw - 24px, 1160px);
+        padding: 18px 0 40px;
+      }
+
+      header,
+      section {
+        padding: 20px;
+        border-radius: 20px;
+      }
+
+      .arch-row {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+
+      td {
+        min-width: 220px;
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Soulbot / Soulmeet 全局架构</p>
+      <h1>项目整体架构说明</h1>
+      <p class="summary">
+        这个项目不是单纯的 Agent Loop。它是一套“前端陪伴体验 + 后端会话运行时 + Soul companion Agent 工具能力 + 语音链路 + 记忆系统 + 部署服务”的组合架构。
+      </p>
+    </header>
+
+    <section>
+      <h2>一句话看懂</h2>
+      <div class="note">
+        前端负责陪伴式聊天界面、3D 角色、文字/语音输入和状态展示；后端负责会话、认证、记忆、语音管线和 Agent 工具调用；真正回答用户生活查询的是 <code>core/soul_companion</code> 里的 Soul Agent，它通过 LLM tool-calling 调用天气、车票、餐厅、景点、健康、提醒、联网搜索等工具。
+      </div>
+      <p>
+        可以把它理解成四层：用户体验层、API 接入层、会话智能层、基础设施层。Agent Loop 只是“会话智能层”里的一个子模块，不是整个项目。
+      </p>
+    </section>
+
+    <section>
+      <h2>总览图</h2>
+      <div class="architecture">
+        <div class="arch-row">
+          <div class="arch-label">用户体验层</div>
+          <div class="arch-box">
+            <code>apps/web</code>：Vue 3 + Vite 单页应用。包含首页、聊天页、桌面/移动聊天布局、Aini 角色、3D VRM、语音按钮、快捷问题、天气标记、会话列表、登录注册等。
+          </div>
+        </div>
+        <div class="arrow">↓ HTTP / SSE / LiveKit / WebRTC</div>
+        <div class="arch-row">
+          <div class="arch-label">API 接入层</div>
+          <div class="arch-box">
+            <code>apps/backend/core/api</code>：FastAPI 路由。包括文本问答、实时语音、按住说话识别、会话列表、用户认证、角色资源、天气栏、快捷建议、声音克隆等接口。
+          </div>
+        </div>
+        <div class="arrow">↓ 统一进入会话运行时</div>
+        <div class="arch-row">
+          <div class="arch-label">会话智能层</div>
+          <div class="arch-box">
+            <code>ConversationSessionManager</code> 管理同一个业务会话。文字输入和语音转写后的文本都会进入这里，然后调用 <code>answer_user_text</code>，再进入 <code>run_soul_agent</code> 执行工具调用循环。
+          </div>
+        </div>
+        <div class="arrow">↓ 工具 / 记忆 / 外部服务</div>
+        <div class="arch-row">
+          <div class="arch-label">能力与基础设施层</div>
+          <div class="arch-box">
+            <code>plugins/soul-companion</code> 提供生活查询工具；<code>AsyncContextManager</code>、<code>SQLStore</code>、<code>MemoryFileStore</code> 提供记忆；DashScope、DeepSeek、高德、12306、LiveKit、PostgreSQL/pgvector、coturn 等作为外部依赖。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>仓库目录职责</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>目录</th>
+            <th>定位</th>
+            <th>你应该怎么看它</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>apps/web</code></td>
+            <td>前端应用</td>
+            <td>Vue/Vite 聊天产品。用户看到的页面、角色、输入框、语音开关、移动/桌面布局都在这里。</td>
+          </tr>
+          <tr>
+            <td><code>apps/backend</code></td>
+            <td>FastAPI 后端</td>
+            <td>所有 API、会话、语音、记忆、Agent、工具适配都从这里启动和运行。</td>
+          </tr>
+          <tr>
+            <td><code>apps/backend/audiences</code></td>
+            <td>角色人设和资源</td>
+            <td>Aini、Liyin 等角色的 <code>persona.yaml</code>、头像、VRM、背景和领域知识文档。</td>
+          </tr>
+          <tr>
+            <td><code>apps/backend/core</code></td>
+            <td>后端核心代码</td>
+            <td>项目最重要的后端目录。API、conversation、pipeline、soul_companion、auth、tools 都在这里。</td>
+          </tr>
+          <tr>
+            <td><code>plugins/soul-companion</code></td>
+            <td>Soul companion 工具插件</td>
+            <td>当前生活查询能力的工具实现来源。Agent 调用的天气、车票、本地搜索、旅行规划等函数在这里。</td>
+          </tr>
+          <tr>
+            <td><code>packages/shared</code></td>
+            <td>前后端共享类型/配置</td>
+            <td>主要导出消息、会话、情绪等共享类型和情绪配置。</td>
+          </tr>
+          <tr>
+            <td><code>packages/stage-three</code></td>
+            <td>3D 角色渲染包</td>
+            <td>封装 <code>AvatarCanvas</code>、VRM 模型加载和表情动作。</td>
+          </tr>
+          <tr>
+            <td><code>packages/i18n</code></td>
+            <td>国际化</td>
+            <td>给前端提供中文/英文文案能力。</td>
+          </tr>
+          <tr>
+            <td><code>packages/ui</code></td>
+            <td>共享 UI 包</td>
+            <td>复用基础 UI 组件，目前体量较小。</td>
+          </tr>
+          <tr>
+            <td><code>deploy</code></td>
+            <td>部署配置</td>
+            <td>Docker Compose、Nginx、生产/开发容器编排。生产包含 web、backend、db、coturn。</td>
+          </tr>
+          <tr>
+            <td><code>docs</code></td>
+            <td>文档输出</td>
+            <td>架构说明、排查报告、部署说明等 HTML 文档。</td>
+          </tr>
+          <tr>
+            <td><code>log</code></td>
+            <td>运行日志</td>
+            <td>本地启动后的后端、前端、DB 和按时间分割日志。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        注意：<code>apps/backend/task</code> 看起来像旧任务系统，但 README 明确写了旧 agent、任务调度和 task server 后端路径已从主问答链路移除。理解当前项目时，不要把它当成文本聊天主路径。
+      </div>
+    </section>
+
+    <section>
+      <h2>前端架构</h2>
+      <div class="layer-grid">
+        <div class="layer-card">
+          <strong>启动入口</strong>
+          <p><code>apps/web/src/main.ts</code> 创建 Vue App，挂载 Pinia、Router、i18n、Sentry、UnoCSS 和全局主题。</p>
+        </div>
+        <div class="layer-card">
+          <strong>路由</strong>
+          <p><code>apps/web/src/router/index.ts</code> 有首页 <code>/</code>、默认聊天页 <code>/chat</code>、角色聊天页 <code>/chat/:audience</code>、指定对话页 <code>/chat/:audience/:conversationId</code>。</p>
+        </div>
+        <div class="layer-card">
+          <strong>聊天总控</strong>
+          <p><code>apps/web/src/pages/chat.vue</code> 是核心页面，组合聊天消息、3D 角色、语音连接、文本请求、SSE 进度、快捷建议、天气、会话列表、登录弹窗等。</p>
+        </div>
+        <div class="layer-card">
+          <strong>布局组件</strong>
+          <p><code>DesktopChatLayout.vue</code> 和 <code>MobileChatLayout.vue</code> 分别负责桌面和移动端聊天界面。</p>
+        </div>
+        <div class="layer-card">
+          <strong>状态管理</strong>
+          <p><code>stores/session.ts</code> 保存连接状态、当前角色、情绪状态、当前节点、可用工具；<code>stores/auth.ts</code> 保存登录态和 token。</p>
+        </div>
+        <div class="layer-card">
+          <strong>实时语音</strong>
+          <p><code>composables/useWebRTC.ts</code> 根据配置使用 LiveKit 或自建 WebRTC，处理音频轨道、数据消息、语音模式、VAD 中断设置。</p>
+        </div>
+        <div class="layer-card">
+          <strong>聊天消息</strong>
+          <p><code>composables/useChat.ts</code> 管理本地消息、流式消息、后端进度事件、任务过程展示。</p>
+        </div>
+        <div class="layer-card">
+          <strong>3D 角色</strong>
+          <p><code>@soulmeet/stage-three</code> 导出 <code>AvatarCanvas</code>，聊天页按需加载 VRM 角色，支持禁用回退。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>后端架构</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>后端模块</th>
+            <th>职责</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>main.py</code></td>
+            <td>应用启动：配置日志、CORS、全局单例、数据库、记忆系统、路由、提醒调度器。</td>
+          </tr>
+          <tr>
+            <td><code>core/api</code></td>
+            <td>HTTP API 层：文本、语音、认证、会话、角色、天气、快捷建议、声音克隆、WebRTC/LiveKit。</td>
+          </tr>
+          <tr>
+            <td><code>core/conversation</code></td>
+            <td>会话与记忆层：会话运行时、历史、SQLStore、文件记忆、异步上下文分析、embedding。</td>
+          </tr>
+          <tr>
+            <td><code>core/soul_companion</code></td>
+            <td>文本智能核心：Soul runtime、Agent Loop、默认地点、提醒调度、提示词。</td>
+          </tr>
+          <tr>
+            <td><code>core/pipeline</code></td>
+            <td>实时语音管线：Transport 输入 → 音频记录 → DashScope STT → 情绪检测 → Soul 回复 → DashScope TTS → Transport 输出。</td>
+          </tr>
+          <tr>
+            <td><code>core/auth</code></td>
+            <td>用户注册、登录、JWT、API Key、用户身份依赖。</td>
+          </tr>
+          <tr>
+            <td><code>core/persona</code></td>
+            <td>读取角色 persona.yaml，给语音、角色资源和人设配置使用。</td>
+          </tr>
+          <tr>
+            <td><code>core/tools</code></td>
+            <td>基础工具注册表和记忆工具。当前 Soul 生活查询主要由 soul-companion 插件直接提供。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>文字聊天主链路</h2>
+      <ol>
+        <li>用户在前端聊天页输入文字。</li>
+        <li><code>chat.vue</code> 打开 <code>/api/text-runtime/events/{session_id}</code> 的 SSE，用来接收“正在判断、正在查询、正在整理”等过程事件。</li>
+        <li><code>chat.vue</code> 调用 <code>POST /api/text-runtime/message</code> 发送文本、角色、session、conversation 和 token。</li>
+        <li><code>text_runtime.py</code> 进入 HTTP 文本入口，确保 conversation 存在，创建或复用业务会话。</li>
+        <li><code>ConversationSessionManager.handle_user_text</code> 记录用户消息、读取最近上下文、解析默认地点、准备进度回调。</li>
+        <li><code>answer_user_text</code> 进入 Soul companion runtime。</li>
+        <li><code>run_soul_agent</code> 让 LLM 决定是否调用工具。如果需要实时信息，模型会返回 tool call。</li>
+        <li>后端执行工具，把工具结果回灌给模型，直到模型生成最终中文答复。</li>
+        <li>会话运行时把回复流式推送给前端，写入记忆系统，并在需要时触发语音播报。</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>实时语音主链路</h2>
+      <ol>
+        <li>前端 <code>useWebRTC.ts</code> 根据 <code>VITE_VOICE_TRANSPORT</code> 选择 LiveKit 或自建 WebRTC。</li>
+        <li>LiveKit 模式先请求 <code>POST /api/livekit/token</code>，后端创建 room token，并启动机器人端 pipeline。</li>
+        <li>自建 WebRTC 模式走 <code>POST /api/offer</code> 做 SDP offer/answer。</li>
+        <li>后端 <code>webrtc.py</code> 创建 transport，再调用 <code>build_pipeline</code>。</li>
+        <li>Pipeline 顺序是：音频输入 → 录音 → DashScope STT → 前端转写展示 → 情绪检测 → Soul companion 回复 → DashScope TTS → 音频输出。</li>
+        <li>语音转写后的最终文本也会进入同一个 Soul companion 回复逻辑，因此文字和语音共享智能核心。</li>
+      </ol>
+      <div class="note">
+        另有“按住说话”模式，它不是实时语音 pipeline，而是短音频上传到 <code>/api/speech/transcribe</code>，识别成文字后再按文字聊天链路发送。
+      </div>
+    </section>
+
+    <section>
+      <h2>Soul Agent 与工具能力</h2>
+      <p>
+        <code>core/soul_companion/agent_loop.py</code> 是当前文本智能核心。它读取 <code>prompt.md</code>，拼接当前日期和默认地点，然后向 DeepSeek 或 DashScope 的 OpenAI-compatible chat/completions 接口发起请求。
+      </p>
+      <p>Agent 暴露给模型的主要工具有：</p>
+      <ul>
+        <li><code>soul_travel_plan</code>：组合天气、车票、景点、美食、住宿，生成老人友好旅行规划。</li>
+        <li><code>soul_weather</code>：高德天气。</li>
+        <li><code>soul_train_tickets</code>：12306 车次/余票。</li>
+        <li><code>soul_local_search</code>：高德 POI，美食、酒店、景点。</li>
+        <li><code>soul_health_query</code>：易联健康记录。</li>
+        <li><code>soul_reminder</code>：一次性定时提醒。</li>
+        <li><code>soul_set_default_location</code>：记录用户确认的默认地点。</li>
+        <li><code>web_search</code>、<code>web_extract</code>：联网搜索和网页正文提取。</li>
+      </ul>
+      <p>
+        工具的实际实现主要在 <code>plugins/soul-companion/__init__.py</code>。仓库里还有 <code>apps/backend/plugins/soul-companion</code> 的副本；当前运行时会优先从仓库根部的 <code>plugins/soul-companion</code> 找插件。
+      </p>
+    </section>
+
+    <section>
+      <h2>记忆系统</h2>
+      <p>
+        记忆系统不是同步回答用户的主链路，而是对话旁路。用户和助手消息会先进入会话 store，再由 <code>AsyncContextManager</code> 异步分析和落库。
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <strong>短期上下文</strong>
+          <p>会话运行时保留最近消息，作为下一轮 Agent 的上下文。</p>
+        </div>
+        <div class="card">
+          <strong>原始消息落盘</strong>
+          <p><code>MemoryFileStore</code> 会把原始对话写到 <code>memories/sessions/...</code>。</p>
+        </div>
+        <div class="card">
+          <strong>结构化记忆</strong>
+          <p><code>AsyncContextManager</code> 调用独立 memory LLM 分析摘要、事件、事实，再通过 <code>SQLStore</code> 写入数据库。</p>
+        </div>
+        <div class="card">
+          <strong>向量化检索</strong>
+          <p><code>EmbeddingService</code> 配合 PostgreSQL/pgvector 处理记忆 embedding。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>角色与资源系统</h2>
+      <p>
+        角色不是写死在聊天页里，而是放在 <code>apps/backend/audiences</code>。每个角色目录通常包含 <code>persona.yaml</code>、头像、VRM 模型、背景图，Aini 还包含领域知识文档。
+      </p>
+      <p>
+        前端通过 <code>/api/audiences</code> 获取角色列表，通过 <code>/api/audiences/{name}/assets/{filename}</code> 和 <code>/api/audiences/{name}/background/{filename}</code> 读取资源。
+      </p>
+    </section>
+
+    <section>
+      <h2>外部服务依赖</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>服务</th>
+            <th>用途</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>DeepSeek / DashScope LLM</td>
+            <td>Soul Agent 的工具调用决策和最终答复；记忆系统也可使用独立 memory LLM。</td>
+          </tr>
+          <tr>
+            <td>DashScope STT/TTS</td>
+            <td>实时语音识别、按住说话识别、语音合成。</td>
+          </tr>
+          <tr>
+            <td>高德地图</td>
+            <td>天气、IP 定位、本地 POI 查询。</td>
+          </tr>
+          <tr>
+            <td>12306</td>
+            <td>火车/动车/高铁车次和余票查询。</td>
+          </tr>
+          <tr>
+            <td>易联健康</td>
+            <td>心率、血压、血氧、体温等健康记录查询。</td>
+          </tr>
+          <tr>
+            <td>PostgreSQL + pgvector</td>
+            <td>用户、会话、消息、记忆、embedding 持久化。</td>
+          </tr>
+          <tr>
+            <td>LiveKit / coturn</td>
+            <td>实时语音连接、NAT 穿透。</td>
+          </tr>
+          <tr>
+            <td>Sentry</td>
+            <td>前后端错误监控，可选。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>部署架构</h2>
+      <p>开发环境和生产环境都围绕 Web、Backend、DB 组织。</p>
+      <ul>
+        <li><code>web</code>：构建前端并通过 Nginx/HTTPS 提供页面。</li>
+        <li><code>backend</code>：运行 FastAPI，默认端口 <code>8080</code>。</li>
+        <li><code>db</code>：PostgreSQL/pgvector，存储用户、会话和记忆。</li>
+        <li><code>coturn</code>：生产环境用于 WebRTC TURN 中继。</li>
+      </ul>
+      <p>
+        关键部署文件是 <code>deploy/docker-compose.dev.yml</code>、<code>deploy/docker-compose.prod.yml</code>、<code>deploy/nginx.conf</code> 和 <code>deploy/docker/Dockerfile.web</code>。
+      </p>
+    </section>
+
+    <section>
+      <h2>当前主链路与非主链路</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>类别</th>
+            <th>模块</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>当前主链路</td>
+            <td><code>apps/web/src/pages/chat.vue</code> → <code>core/api/text_runtime.py</code> → <code>core/conversation/runtime_session.py</code> → <code>core/soul_companion</code> → <code>plugins/soul-companion</code></td>
+            <td>文字聊天主路径。</td>
+          </tr>
+          <tr>
+            <td>当前主链路</td>
+            <td><code>useWebRTC.ts</code> → <code>core/api/webrtc.py</code> → <code>core/pipeline/factory.py</code> → <code>core/conversation/runtime_session.py</code> → <code>core/soul_companion</code></td>
+            <td>实时语音主路径。</td>
+          </tr>
+          <tr>
+            <td>当前辅助链路</td>
+            <td><code>core/conversation/context_manager.py</code>、<code>sql_store.py</code>、<code>file_store.py</code></td>
+            <td>异步记忆，不直接决定每轮回复。</td>
+          </tr>
+          <tr>
+            <td>历史/非主路径</td>
+            <td><code>apps/backend/task</code></td>
+            <td>旧 task/agent 系统残留，不是当前文本问答主路径。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>阅读代码建议</h2>
+      <ol>
+        <li>先看 <code>README.md</code>，确认当前产品能力和已移除旧路径。</li>
+        <li>再看 <code>apps/web/src/pages/chat.vue</code>，理解用户交互怎么发给后端。</li>
+        <li>然后看 <code>apps/backend/core/api/text_runtime.py</code> 和 <code>runtime_session.py</code>，理解文本请求怎么进入会话。</li>
+        <li>接着看 <code>core/soul_companion/runtime.py</code>、<code>agent_loop.py</code>、<code>prompt.md</code>，理解 Agent 如何调用工具。</li>
+        <li>最后看 <code>plugins/soul-companion/__init__.py</code>，理解每个生活查询工具实际做什么。</li>
+        <li>如果研究语音，再看 <code>useWebRTC.ts</code>、<code>webrtc.py</code>、<code>pipeline/factory.py</code>。</li>
+        <li>如果研究记忆，再看 <code>context_manager.py</code>、<code>sql_store.py</code>、<code>models.py</code>。</li>
+      </ol>
+    </section>
+  </main>
+</body>
+</html>

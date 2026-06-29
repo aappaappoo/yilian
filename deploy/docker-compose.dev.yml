@@ -1,0 +1,110 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      POSTGRES_USER: ${POSTGRES_USER:-soulmeet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-soulmeet_password}
+      POSTGRES_DB: ${POSTGRES_DB:-soulmeet_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-soulmeet} -d ${POSTGRES_DB:-soulmeet_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+
+  backend:
+    build:
+      context: ../apps/backend
+      dockerfile: Dockerfile
+    image: soulmeet-backend:dev
+    restart: unless-stopped
+    command: ["python", "main.py"]
+    env_file:
+      - .env
+    environment:
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "2"
+      # 限制 PyTorch/OpenMP 线程数，防止 CPU 空转
+      OMP_WAIT_POLICY: "PASSIVE"
+      TORCH_NUM_THREADS: "2"
+      TORCH_NUM_INTEROP_THREADS: "1"
+      TZ: ${TZ}
+      CONTEXT_SQL_URL: postgresql+asyncpg://${POSTGRES_USER:-soulmeet}:${POSTGRES_PASSWORD:-soulmeet_password}@db:5432/${POSTGRES_DB:-soulmeet_db}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - backend_logs:/app/log
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.5"
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.web
+    image: soulmeet-web:dev
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      SSL_DOMAIN: 0.0.0.0
+    depends_on:
+      - backend
+    ports:
+      - "5173:443"
+    volumes:
+      - ./certs:/etc/nginx/ssl
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.3"
+
+  # ── 资源监控（部署完成后显示各容器资源占用）──
+  stats:
+    image: alpine:3.19
+    depends_on:
+      - web
+      - backend
+      - db
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo ""
+        echo "=============================================="
+        echo "  Soulmeet Dev 环境已启动"
+        echo "  访问地址: https://localhost:5173"
+        echo "=============================================="
+        echo ""
+        echo "资源限制汇总："
+        echo "  db          : 256MB / 0.5 CPU"
+        echo "  backend     : 2GB / 1.5 CPU"
+        echo "  web         : 128MB / 0.3 CPU"
+        echo "  总计        : ~2.4GB / 2.3 CPU"
+        echo ""
+        echo "提示: 使用 docker stats 查看实时资源占用"
+        echo "=============================================="
+    deploy:
+      resources:
+        limits:
+          memory: 16M
+          cpus: "0.1"
+
+volumes:
+  pgdata:
+    driver: local
+  backend_logs:
+    driver: local
