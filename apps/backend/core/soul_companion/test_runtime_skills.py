@@ -34,6 +34,18 @@ requires_tools:
     return skill_dir
 
 
+def test_repo_root_falls_back_to_backend_app_dir_without_git(tmp_path, monkeypatch):
+    app_dir = tmp_path / "app"
+    module_path = app_dir / "core" / "soul_companion" / "skills.py"
+    module_path.parent.mkdir(parents=True)
+    module_path.write_text("", encoding="utf-8")
+    (app_dir / "main.py").write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(runtime_skills, "__file__", str(module_path))
+
+    assert runtime_skills._repo_root() == app_dir
+
+
 def test_runtime_skill_install_and_index_prompt(tmp_path, monkeypatch):
     source_dir = _write_skill(tmp_path)
     install_dir = tmp_path / "installed"

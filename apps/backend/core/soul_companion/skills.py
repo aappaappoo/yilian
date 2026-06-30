@@ -50,7 +50,12 @@ def _repo_root() -> Path:
     for parent in current.parents:
         if (parent / ".git").exists():
             return parent
-    return current.parents[4]
+    for parent in current.parents:
+        if (parent / "main.py").exists() and (parent / "core").is_dir():
+            return parent
+        if (parent / "apps" / "backend").is_dir():
+            return parent
+    return Path.cwd().resolve()
 
 
 def skills_root() -> Path:
