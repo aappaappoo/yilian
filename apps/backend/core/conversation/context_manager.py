@@ -253,6 +253,8 @@ class AsyncContextManager:
             audience: str,
             role: str,
             content: str,
+            source: str = "",
+            artifact: Optional[Dict[str, Any]] = None,
             context_config: Optional[Dict] = None,
             user_id: str = "",
             conversation_id: str = "",
@@ -292,6 +294,8 @@ class AsyncContextManager:
                     audiences=audience,
                     role=role,
                     content=content,
+                    source=source,
+                    artifact=artifact,
                     round_id=current_round,
                 )
 

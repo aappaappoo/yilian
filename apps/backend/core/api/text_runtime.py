@@ -53,8 +53,10 @@ class TextRuntimeResponse(BaseModel):
     session_id: str
     conversation_id: str
     audience: str
+    message_id: Optional[str] = None
     text: str
     source: str = "text-runtime"
+    first_token_at: Optional[str] = None
     artifact: Optional[dict[str, Any]] = None
 
 
@@ -68,6 +70,21 @@ class TextRuntimeTaskRetryResponse(BaseModel):
     text: str = ""
     source: str = "task_retry"
     artifact: Optional[dict[str, Any]] = None
+
+
+class TextRuntimeStateMessage(BaseModel):
+    role: str
+    content: str
+
+
+class TextRuntimeStateResponse(BaseModel):
+    session_id: str
+    conversation_id: str
+    audience: str
+    active: bool
+    message_count: int
+    latest_event_seq: int = 0
+    messages: list[TextRuntimeStateMessage] = Field(default_factory=list)
 
 
 def _sse_payload(payload: dict) -> str:
@@ -137,38 +154,52 @@ async def text_runtime_message(
     loop = asyncio.get_running_loop()
     http_reply_future: asyncio.Future = loop.create_future()
     session.pending_http_replies.append(http_reply_future)
+
+    async def run_text_response() -> None:
+        try:
+            await conversation_session_manager.handle_user_text(
+                session,
+                request.text,
+                timeout_seconds=request.timeout_seconds,
+                source="text",
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if http_reply_future in session.pending_http_replies and not http_reply_future.done():
+                http_reply_future.set_exception(exc)
+            logger.exception(
+                f"[{AI_REPLY}] | Task=HTTP文本后台任务失败 | "
+                f"session={session.session_id[:8]}, error={exc}"
+            )
+
+    response_task = asyncio.create_task(run_text_response())
+    session.background_response_tasks.add(response_task)
+    response_task.add_done_callback(session.background_response_tasks.discard)
+
     try:
-        reply_text, source, artifact = await conversation_session_manager.handle_user_text(
-            session,
-            request.text,
-            timeout_seconds=request.timeout_seconds,
-            source="text",
-        )
+        reply_text, source, artifact, first_token_at, message_id = await asyncio.shield(http_reply_future)
     except asyncio.CancelledError:
         logger.info(
-            f"[{AI_REPLY}] | Task=HTTP文本出口 | session={session.session_id[:8]}, source=interrupted"
+            f"[{AI_REPLY}] | Task=HTTP文本出口断开 | session={session.session_id[:8]}, "
+            f"background_task_running={not response_task.done()}"
         )
-        return TextRuntimeResponse(
-            session_id=session.session_id,
-            conversation_id=session.conversation_id,
-            audience=session.audience,
-            text="",
-            source="interrupted",
-            artifact=None,
-        )
+        raise
     finally:
         if http_reply_future in session.pending_http_replies:
             session.pending_http_replies.remove(http_reply_future)
     logger.info(
         f"[{AI_REPLY}] | Task=HTTP文本出口 | session={session.session_id[:8]}, "
-        f"source={source}, text='{flatten_content(reply_text, max_len=80)}'"
+        f"message_id={message_id}, source={source}, text='{flatten_content(reply_text, max_len=80)}'"
     )
     return TextRuntimeResponse(
         session_id=session.session_id,
         conversation_id=session.conversation_id,
         audience=session.audience,
+        message_id=message_id,
         text=reply_text,
         source=source,
+        first_token_at=first_token_at,
         artifact=artifact,
     )
 
@@ -210,6 +241,8 @@ async def text_runtime_events(
     audience: str = "Aini",
     token: Optional[str] = None,
     conversation_id: Optional[str] = None,
+    since: int = 0,
+    replay: bool = False,
 ) -> StreamingResponse:
     audience_name = audience.strip() or settings.audience
     client_ip = _extract_client_ip(http_request)
@@ -243,6 +276,11 @@ async def text_runtime_events(
     async def event_stream():
         try:
             yield _sse_payload({"type": "text_progress_connected", "session_id": session.session_id})
+            if replay or since > 0:
+                for payload in list(session.text_event_history):
+                    seq = int(payload.get("_seq") or 0)
+                    if seq > since:
+                        yield _sse_payload(payload)
             while True:
                 if await http_request.is_disconnected():
                     break
@@ -267,6 +305,42 @@ async def text_runtime_events(
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@router.get("/session/{session_id}/state", response_model=TextRuntimeStateResponse)
+async def get_text_runtime_state(
+    session_id: str,
+    request: Request,
+    audience: str = "Aini",
+    token: Optional[str] = None,
+    conversation_id: Optional[str] = None,
+) -> TextRuntimeStateResponse:
+    audience_name = audience.strip() or settings.audience
+    client_ip = _extract_client_ip(request)
+    user_id = _extract_user_id(token or "")
+    session = await conversation_session_manager.get_or_create(
+        audience=audience_name,
+        session_id=session_id,
+        conversation_id=(conversation_id or "").strip(),
+        user_id=user_id,
+        client_ip=client_ip,
+    )
+    active_task = session.active_response_task
+    return TextRuntimeStateResponse(
+        session_id=session.session_id,
+        conversation_id=session.conversation_id,
+        audience=session.audience,
+        active=bool(active_task and not active_task.done()),
+        message_count=session.message_count,
+        latest_event_seq=session.text_event_seq,
+        messages=[
+            TextRuntimeStateMessage(
+                role=str(message.get("role") or ""),
+                content=str(message.get("content") or ""),
+            )
+            for message in session.recent_messages[-50:]
+        ],
     )
 
 

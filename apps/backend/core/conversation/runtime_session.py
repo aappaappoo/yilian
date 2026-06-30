@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -52,6 +52,10 @@ _BARE_URL_RE = re.compile(r"https?://[^\s<>\])）\"'，。；;、]+")
 _REFERENCE_HEADING_RE = re.compile(
     r"^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*(?:(?:第\s*)?(?:[一二三四五六七八九十百\d]+)\s*[、.．)：:]\s*)?(?:\*\*)?\s*(?:参考链接|参考资料|参考来源|参考网页|参考文献|引用链接|引用来源|资料来源|来源链接|信息来源)\s*(?:\*\*)?\s*(?:[：:].*)?$"
 )
+
+
+def _utc_iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _reference_label_for_url(url: str) -> str:
@@ -313,7 +317,14 @@ class SessionContext:
     def set_conversation_id(self, conversation_id: str) -> None:
         self._conversation_id = conversation_id or ""
 
-    async def add_message(self, role: str, content: str) -> None:
+    async def add_message(
+        self,
+        role: str,
+        content: str,
+        *,
+        source: str = "",
+        artifact: Optional[Dict[str, Any]] = None,
+    ) -> None:
         await self._store.append_message(
             key=self.namespace,
             role=role,
@@ -329,6 +340,8 @@ class SessionContext:
             audience=self._audience,
             role=role,
             content=content,
+            source=source,
+            artifact=artifact,
             context_config=self._context_config,
             user_id=self._user_id,
             conversation_id=self._conversation_id,
@@ -377,7 +390,10 @@ class ConversationSession:
         self.client_ip = client_ip
         self.pending_http_replies: List[asyncio.Future] = []
         self.active_response_task: Optional[asyncio.Task] = None
+        self.background_response_tasks = set()
         self.text_progress_subscribers: List[asyncio.Queue] = []
+        self.text_event_history: List[Dict[str, Any]] = []
+        self.text_event_seq = 0
         self.voice_reply_enabled = False
         self.voice_connection: Any = None
         self.voice_task: Any = None
@@ -415,6 +431,12 @@ class ConversationSession:
             pass
 
     async def publish_text_event(self, payload: Dict[str, Any]) -> None:
+        self.text_event_seq += 1
+        payload = dict(payload)
+        payload["_seq"] = self.text_event_seq
+        self.text_event_history.append(payload)
+        self.text_event_history = self.text_event_history[-300:]
+
         stale: List[asyncio.Queue] = []
         for queue in list(self.text_progress_subscribers):
             try:
@@ -613,7 +635,7 @@ class ConversationSessionManager:
         *,
         timeout_seconds: float,
         source: str,
-    ) -> Tuple[str, str, Optional[Dict[str, Any]]]:
+    ) -> Tuple[str, str, Optional[Dict[str, Any]], Optional[str], str]:
         del timeout_seconds
         user_text = text.strip()
         if not user_text:
@@ -665,6 +687,13 @@ class ConversationSessionManager:
                 stream_block_started = False
                 stream_delta_buffer = ""
                 stream_delta_last_flush_at = time.monotonic()
+                assistant_first_token_at: Optional[str] = None
+
+                def mark_assistant_first_token() -> str:
+                    nonlocal assistant_first_token_at
+                    if assistant_first_token_at is None:
+                        assistant_first_token_at = _utc_iso_now()
+                    return assistant_first_token_at
 
                 async def publish_stream_payload(payload: Dict[str, Any]) -> None:
                     await session.publish_text_event(payload)
@@ -708,12 +737,15 @@ class ConversationSessionManager:
                         return
                     await ensure_stream_block_started()
                     streamed_reply = True
-                    await publish_stream_payload({
+                    payload: Dict[str, Any] = {
                         "type": "content_block_delta",
                         "message_id": response_message_id,
                         "block_id": response_block_id,
                         "delta": stream_delta_buffer,
-                    })
+                    }
+                    if assistant_first_token_at:
+                        payload["first_token_at"] = assistant_first_token_at
+                    await publish_stream_payload(payload)
                     stream_delta_buffer = ""
                     stream_delta_last_flush_at = time.monotonic()
 
@@ -721,6 +753,7 @@ class ConversationSessionManager:
                     nonlocal stream_delta_buffer
                     if not chunk:
                         return
+                    mark_assistant_first_token()
                     stream_delta_buffer += chunk
                     if should_flush_stream_delta(stream_delta_buffer, chunk):
                         await flush_stream_delta()
@@ -756,7 +789,14 @@ class ConversationSessionManager:
                 await flush_stream_delta()
                 reply = _normalize_assistant_reply_text(result.text, artifact=result.artifact)
                 if not streamed_reply:
-                    await self.stream_assistant_text(session, reply, source=result.source, message_id=response_message_id)
+                    assistant_first_token_at = (
+                        await self.stream_assistant_text(
+                            session,
+                            reply,
+                            source=result.source,
+                            message_id=response_message_id,
+                        )
+                    ) or assistant_first_token_at
                 else:
                     finish_payload: Dict[str, Any] = {
                         "type": "assistant_message_finish",
@@ -764,6 +804,8 @@ class ConversationSessionManager:
                         "text": reply,
                         "source": result.source,
                     }
+                    if assistant_first_token_at:
+                        finish_payload["first_token_at"] = assistant_first_token_at
                     frontend_artifact = public_artifact(result.artifact)
                     await publish_stream_payload({
                         "type": "content_block_finish",
@@ -778,15 +820,18 @@ class ConversationSessionManager:
                     reply,
                     source=result.source,
                     artifact=result.artifact,
+                    first_token_at=assistant_first_token_at or mark_assistant_first_token(),
+                    message_id=response_message_id,
                 )
                 await self.dispatch_voice_speech(session, reply)
                 logger.info(
                     f"[{AI_REPLY}] | Task=Soul文本回复 | session={session.session_id[:8]}, "
-                    f"source={result.source}, voice_reply={session.voice_reply_enabled}, "
+                    f"message_id={response_message_id}, source={result.source}, "
+                    f"voice_reply={session.voice_reply_enabled}, "
                     f"content='{flatten_content(reply, max_len=80)}'"
                 )
                 trace_recorder.finish_trace(trace_id, status="success")
-                return reply, result.source, result.artifact
+                return reply, result.source, result.artifact, assistant_first_token_at, response_message_id
         except asyncio.CancelledError:
             trace_recorder.finish_trace(trace_id, status="failed", error="cancelled")
             await self._publish_response_interrupted(session, reason="cancelled")
@@ -839,17 +884,19 @@ class ConversationSessionManager:
                     tts_processor.cancel_synthesis()
                 except Exception as exc:
                     logger.warning(f"[{TTS}] | Task=语音中断 | TTS取消失败: {exc}")
-        if session.voice_task is None:
+        voice_runtime = session.voice_task or session.voice_connection
+        interrupt = getattr(voice_runtime, "interrupt", None)
+        if interrupt is None:
             return
         try:
-            from pipecat.frames.frames import InterruptionFrame
-
-            await session.voice_task.queue_frame(InterruptionFrame())
+            result = interrupt()
+            if asyncio.iscoroutine(result):
+                await result
             logger.debug(
                 f"[{AI_REPLY}] | Task=语音中断 | session={session.session_id[:8]}, reason={reason}"
             )
         except Exception as exc:
-            logger.warning(f"[{AI_REPLY}] | Task=语音中断 | InterruptionFrame 入队失败: {exc}")
+            logger.warning(f"[{AI_REPLY}] | Task=语音中断 | runtime interrupt 失败: {exc}")
 
     async def dispatch_assistant_text(
         self,
@@ -858,6 +905,8 @@ class ConversationSessionManager:
         *,
         source: str,
         artifact: Optional[Dict[str, Any]] = None,
+        first_token_at: Optional[str] = None,
+        message_id: Optional[str] = None,
         resolve_http_reply: bool = True,
     ) -> bool:
         if artifact:
@@ -870,6 +919,8 @@ class ConversationSessionManager:
                 text,
                 source=source,
                 artifact=frontend_artifact,
+                first_token_at=first_token_at,
+                message_id=message_id,
             )
         if not handled_by_http:
             payload: Dict[str, Any] = {
@@ -877,6 +928,10 @@ class ConversationSessionManager:
                 "text": text,
                 "source": source,
             }
+            if message_id:
+                payload["message_id"] = message_id
+            if first_token_at:
+                payload["first_token_at"] = first_token_at
             if frontend_artifact:
                 payload["artifact"] = frontend_artifact
             await session.publish_text_event(payload)
@@ -886,7 +941,12 @@ class ConversationSessionManager:
                 except Exception as exc:
                     logger.warning(f"[{AI_REPLY}] | Task=Soul文本分发 | 前端文字发送失败: {exc}")
 
-        await session.session_ctx.add_message("assistant", text)
+        await session.session_ctx.add_message(
+            "assistant",
+            text,
+            source=source,
+            artifact=frontend_artifact,
+        )
         session.record_message("assistant", text)
         return handled_by_http
 
@@ -912,12 +972,13 @@ class ConversationSessionManager:
             "reminder": delivered_job.to_dict(),
         }
         async with session._lock:
-            await self.stream_assistant_text(session, text, source="soul_companion:reminder")
+            first_token_at = await self.stream_assistant_text(session, text, source="soul_companion:reminder")
             await self.dispatch_assistant_text(
                 session,
                 text,
                 source="soul_companion:reminder",
                 artifact=artifact,
+                first_token_at=first_token_at,
                 resolve_http_reply=False,
             )
             await self.dispatch_voice_speech(session, text)
@@ -933,14 +994,15 @@ class ConversationSessionManager:
         *,
         source: str,
         message_id: Optional[str] = None,
-    ) -> None:
+    ) -> Optional[str]:
         if not text or not session.text_progress_subscribers:
-            return
+            return None
         chunks = _iter_text_stream_chunks(text)
         if not chunks:
-            return
+            return None
         response_message_id = message_id or str(uuid4())
         block_id = "main"
+        first_token_at: Optional[str] = None
         logger.debug(
             f"[{AI_REPLY}] | Task=Soul文本流式输出 | session={session.session_id[:8]}, "
             f"source={source}, chunks={len(chunks)}"
@@ -958,11 +1020,14 @@ class ConversationSessionManager:
             "source": source,
         })
         for chunk in chunks:
+            if first_token_at is None:
+                first_token_at = _utc_iso_now()
             await session.publish_text_event({
                 "type": "content_block_delta",
                 "message_id": response_message_id,
                 "block_id": block_id,
                 "delta": chunk,
+                "first_token_at": first_token_at,
             })
             await asyncio.sleep(TEXT_STREAM_CHUNK_DELAY_SECONDS)
         await session.publish_text_event({
@@ -975,7 +1040,9 @@ class ConversationSessionManager:
             "message_id": response_message_id,
             "text": text,
             "source": source,
+            "first_token_at": first_token_at,
         })
+        return first_token_at
 
     async def dispatch_voice_speech(
         self,
@@ -991,16 +1058,26 @@ class ConversationSessionManager:
             logger.warning(f"[{TTS}] | Task=语音播报跳过 | session={session.session_id[:8]}, reason=voice_runtime_missing")
             return
         components = session.voice_components
-        if components is None or components.tts_processor is None:
+        speak_text = getattr(session.voice_connection, "speak_text", None)
+        if speak_text is not None:
+            try:
+                result = speak_text(text)
+                if asyncio.iscoroutine(result):
+                    await result
+                return
+            except Exception as exc:
+                logger.warning(
+                    f"[{AI_REPLY}] | Task=语音播报 | runtime speak_text 失败，文本回复不受影响: "
+                    f"session={session.session_id[:8]}, error={exc}"
+                )
+                return
+        if components is None or getattr(components, "tts_processor", None) is None:
             logger.warning(f"[{TTS}] | Task=语音播报跳过 | session={session.session_id[:8]}, reason=tts_processor_missing")
             return
         try:
             components.tts_processor.cancel_synthesis()
-            from pipecat.frames.frames import TTSSpeakFrame
-
-            await session.voice_task.queue_frame(TTSSpeakFrame(text=text))
             logger.info(
-                f"[{TTS}] | Task=语音播报入队 | session={session.session_id[:8]}, "
+                f"[{TTS}] | Task=语音播报跳过 | session={session.session_id[:8]}, reason=legacy_runtime_removed, "
                 f"text='{flatten_content(text, max_len=80)}'"
             )
         except Exception as exc:
@@ -1016,12 +1093,14 @@ class ConversationSessionManager:
         *,
         source: str,
         artifact: Optional[Dict[str, Any]] = None,
+        first_token_at: Optional[str] = None,
+        message_id: Optional[str] = None,
     ) -> bool:
         while session.pending_http_replies:
             future = session.pending_http_replies.pop(0)
             if future.cancelled() or future.done():
                 continue
-            future.set_result((text, source, artifact))
+            future.set_result((text, source, artifact, first_token_at, message_id))
             return True
         return False
 
