@@ -1,0 +1,57 @@
+# Root-context Railway Dockerfile for the backend service.
+# Use this when Railway Root Directory is the repository root.
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY apps/backend/requirements.txt .
+RUN python -m pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY apps/backend/main.py .
+COPY apps/backend/core/ core/
+COPY apps/backend/audiences/ audiences/
+COPY apps/backend/scripts/ scripts/
+COPY apps/backend/plugins/ plugins/
+
+RUN python -m compileall -q core/ audiences/ scripts/ plugins/
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libpq5 \
+        curl \
+        libxcb1 \
+        libgl1 \
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /build /app
+
+RUN mkdir -p /app/nltk_data/tokenizers/punkt_tab /app/log && \
+    useradd --no-create-home --shell /usr/sbin/nologin appuser && \
+    chown -R appuser:appuser /app
+
+ENV NLTK_DATA=/app/nltk_data
+ENV LOG_DIR=/app/log
+ENV MEMORIES_DIR=/app/memories
+ENV SOUL_SKILLS_DIR=/app/core/soul_companion/builtin_skills
+ENV DASHSCOPE_API_KEY=__railway_placeholder__
+
+USER appuser
+
+EXPOSE 8080
+
+CMD ["python", "main.py"]
