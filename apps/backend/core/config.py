@@ -206,6 +206,82 @@ class Settings(BaseSettings):
         default=3600,
         description="LiveKit 前端/Agent token 有效期（秒）",
     )
+    voice_agent_name: str = Field(
+        default="companion-voice",
+        description="LiveKit Agents worker 注册的 agent 名称",
+    )
+    voice_agent_stt_model: str = Field(
+        default="paraformer-realtime-v2",
+        description="阿里 DashScope 实时 STT 模型",
+    )
+    voice_agent_stt_language: str = Field(
+        default="zh",
+        description="阿里 DashScope STT 语言",
+    )
+    voice_agent_tts_model: str = Field(
+        default="cosyvoice-v3-flash",
+        description="阿里 DashScope TTS 模型",
+    )
+    voice_agent_tts_voice: Optional[str] = Field(
+        default=None,
+        description="阿里 DashScope TTS 音色 ID；为空时使用 DASHSCOPE_TTS_VOICE",
+    )
+    voice_agent_turn_detector_version: Literal["v1", "v1-mini"] = Field(
+        default="v1",
+        description="LiveKit turn detector 版本",
+    )
+    voice_agent_endpointing_mode: Literal["fixed", "dynamic"] = Field(
+        default="dynamic",
+        description="LiveKit endpointing 模式",
+    )
+    voice_agent_endpointing_alpha: float = Field(
+        default=0.9,
+        description="动态 endpointing 的指数移动平均系数",
+    )
+    voice_agent_min_endpointing_delay: float = Field(
+        default=0.35,
+        description="用户停顿后最短端点判定延迟（秒）",
+    )
+    voice_agent_max_endpointing_delay: float = Field(
+        default=2.5,
+        description="用户停顿后最长端点判定延迟（秒）",
+    )
+    voice_agent_min_interruption_duration: float = Field(
+        default=0.5,
+        description="触发打断的最短用户语音持续时间（秒）",
+    )
+    voice_agent_min_interruption_words: int = Field(
+        default=0,
+        description="触发打断的最少词数",
+    )
+    voice_agent_false_interruption_timeout: float = Field(
+        default=2.0,
+        description="误打断恢复判定的静音等待时间（秒）",
+    )
+    voice_agent_backchannel_min_seconds: float = Field(
+        default=1.0,
+        description="短反馈语音被识别为 backchannel 前的最短边界（秒）",
+    )
+    voice_agent_backchannel_max_seconds: float = Field(
+        default=2.5,
+        description="短反馈语音被识别为 backchannel 前的最长边界（秒）",
+    )
+    voice_agent_preemptive_generation_enabled: bool = Field(
+        default=True,
+        description="是否启用预生成，降低端点判定后的首包延迟",
+    )
+    voice_agent_preemptive_tts_enabled: bool = Field(
+        default=False,
+        description="是否允许预生成阶段提前合成语音；默认关闭以降低误播风险",
+    )
+    voice_agent_vad_activation_threshold: float = Field(
+        default=0.5,
+        description="LiveKit Silero VAD 激活阈值",
+    )
+    voice_agent_greeting_enabled: bool = Field(
+        default=False,
+        description="Agent 入房后是否主动发送语音问候",
+    )
 
     turn_url: Optional[str] = Field(
         default=None,

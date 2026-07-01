@@ -18,10 +18,9 @@ from livekit.agents import (
     RoomOutputOptions,
     WorkerOptions,
     cli,
-    inference,
 )
 from livekit.agents import llm
-from livekit.plugins import aliyun
+from livekit.plugins import aliyun, silero
 from loguru import logger
 
 from core.config import settings
@@ -380,13 +379,13 @@ def _build_agent_session() -> AgentSession:
     tts_voice = settings.voice_agent_tts_voice or settings.dashscope_tts_voice
 
     return AgentSession(
+        turn_detection="vad",
         stt=aliyun.STT(
             model=settings.voice_agent_stt_model,
             language=settings.voice_agent_stt_language,
             api_key=settings.dashscope_api_key,
         ),
-        vad=inference.VAD(
-            model="silero",
+        vad=silero.VAD.load(
             activation_threshold=settings.voice_agent_vad_activation_threshold,
         ),
         tts=aliyun.TTS(
@@ -395,35 +394,13 @@ def _build_agent_session() -> AgentSession:
             voice=tts_voice,
             sample_rate=24000,
         ),
-        turn_handling={
-            "turn_detection": inference.TurnDetector(
-                version=settings.voice_agent_turn_detector_version,
-                api_key=settings.livekit_api_key,
-                api_secret=settings.livekit_api_secret,
-            ),
-            "endpointing": {
-                "mode": settings.voice_agent_endpointing_mode,
-                "min_delay": settings.voice_agent_min_endpointing_delay,
-                "max_delay": settings.voice_agent_max_endpointing_delay,
-                "alpha": settings.voice_agent_endpointing_alpha,
-            },
-            "interruption": {
-                "enabled": True,
-                "mode": "adaptive",
-                "min_duration": settings.voice_agent_min_interruption_duration,
-                "min_words": settings.voice_agent_min_interruption_words,
-                "resume_false_interruption": True,
-                "false_interruption_timeout": settings.voice_agent_false_interruption_timeout,
-                "backchannel_boundary": (
-                    settings.voice_agent_backchannel_min_seconds,
-                    settings.voice_agent_backchannel_max_seconds,
-                ),
-            },
-            "preemptive_generation": {
-                "enabled": settings.voice_agent_preemptive_generation_enabled,
-                "preemptive_tts": settings.voice_agent_preemptive_tts_enabled,
-            },
-        },
+        min_endpointing_delay=settings.voice_agent_min_endpointing_delay,
+        max_endpointing_delay=settings.voice_agent_max_endpointing_delay,
+        min_interruption_duration=settings.voice_agent_min_interruption_duration,
+        min_interruption_words=settings.voice_agent_min_interruption_words,
+        false_interruption_timeout=settings.voice_agent_false_interruption_timeout,
+        resume_false_interruption=True,
+        preemptive_generation=settings.voice_agent_preemptive_generation_enabled,
         user_away_timeout=None,
     )
 
@@ -549,7 +526,6 @@ async def entrypoint(ctx: JobContext) -> None:
             audio_sample_rate=24000,
             audio_num_channels=1,
         ),
-        record=False,
     )
     if settings.voice_agent_greeting_enabled:
         await session.say("我在，你可以直接和我说。", allow_interruptions=True)
