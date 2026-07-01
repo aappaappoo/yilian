@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     # ── DashScope ──
     dashscope_api_key: str = Field(..., description="DashScope API Key", repr=False)
     dashscope_stt_model: str = Field(default="paraformer-realtime-v2", description="STT 模型名")
-    dashscope_tts_model: str = Field(default="cosyvoice-v2", description="TTS 模型名")
-    dashscope_tts_voice: str = Field(default="longxiaochun_v2", description="TTS 默认音色")
+    dashscope_tts_model: str = Field(default="cosyvoice-v3-flash", description="TTS 模型名")
+    dashscope_tts_voice: str = Field(default="longanhuan", description="TTS 默认音色")
     dashscope_llm_model: str = Field(default="qwen-max", description="LLM 模型名")
 
     # ── DeepSeek（Soul 陪伴 Agent 默认 provider） ──

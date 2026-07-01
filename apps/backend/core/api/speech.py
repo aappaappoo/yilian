@@ -14,20 +14,27 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from loguru import logger
 from pydantic import BaseModel
 
 from core.config import settings
-from core.logging_utils import STT, USER_INPUT, flatten_content
+from core.logging_utils import STT, TTS, USER_INPUT, flatten_content
 
 router = APIRouter(prefix="/api/speech", tags=["speech"])
 
 MAX_AUDIO_BYTES = 8 * 1024 * 1024
 MIN_AUDIO_BYTES = 800
 DEFAULT_STT_TIMEOUT_SECONDS = 18.0
+MAX_TTS_TEXT_CHARS = 6000
+DEFAULT_TTS_TIMEOUT_MILLIS = 45000
 
 
 class SpeechTranscribeResponse(BaseModel):
+    text: str
+
+
+class SpeechSynthesizeRequest(BaseModel):
     text: str
 
 
@@ -155,6 +162,88 @@ def _transcribe_pcm_sync(
 
     text = "".join(final_texts).strip() or interim_text.strip()
     return text
+
+
+def _synthesize_text_sync(text: str, request_id: str) -> tuple[bytes, str, str]:
+    try:
+        import dashscope
+        from dashscope.audio.tts_v2 import AudioFormat, SpeechSynthesizer
+    except Exception as exc:  # pragma: no cover - depends on runtime package.
+        raise RuntimeError("dashscope SDK 未安装或不可用") from exc
+
+    dashscope.api_key = settings.dashscope_api_key
+    model = (
+        getattr(settings, "voice_agent_tts_model", None)
+        or settings.dashscope_tts_model
+        or "cosyvoice-v3-flash"
+    )
+    voice = (
+        getattr(settings, "voice_agent_tts_voice", None)
+        or settings.dashscope_tts_voice
+        or "longanhuan"
+    )
+    synthesizer = SpeechSynthesizer(
+        model=model,
+        voice=voice,
+        format=AudioFormat.WAV_24000HZ_MONO_16BIT,
+        volume=80,
+        speech_rate=1.0,
+        pitch_rate=1.0,
+        language_hints=["zh"],
+    )
+    logger.info(
+        f"[{TTS}] | Task=聊天播报合成 | request={request_id}, "
+        f"DashScope 开始合成: model={model}, voice={voice}, text_len={len(text)}"
+    )
+    audio = synthesizer.call(text, timeout_millis=DEFAULT_TTS_TIMEOUT_MILLIS)
+    if not audio:
+        raise RuntimeError("DashScope TTS returned empty audio")
+    return audio, model, voice
+
+
+@router.post("/synthesize")
+async def synthesize_speech(request: SpeechSynthesizeRequest) -> Response:
+    """Synthesize text with Aliyun CosyVoice for chat voice broadcast."""
+    request_id = uuid4().hex[:8]
+    text = request.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="播报文本不能为空")
+    if len(text) > MAX_TTS_TEXT_CHARS:
+        raise HTTPException(status_code=413, detail="播报文本太长，请缩短后重试")
+
+    started_at = time.perf_counter()
+    try:
+        audio, model, voice = await asyncio.to_thread(_synthesize_text_sync, text, request_id)
+    except RuntimeError as exc:
+        elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+        logger.error(
+            f"[{TTS}] | Task=聊天播报合成 | request={request_id}, "
+            f"DashScope 合成失败: elapsed_ms={elapsed_ms}, error={exc}"
+        )
+        raise HTTPException(status_code=502, detail="语音播报合成失败，请稍后重试") from exc
+    except Exception as exc:
+        elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+        logger.error(
+            f"[{TTS}] | Task=聊天播报合成 | request={request_id}, "
+            f"未知错误: elapsed_ms={elapsed_ms}, error={exc}"
+        )
+        raise HTTPException(status_code=500, detail="语音播报服务异常") from exc
+
+    elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+    logger.info(
+        f"[{TTS}] | Task=聊天播报合成 | request={request_id}, "
+        f"合成完成: elapsed_ms={elapsed_ms}, bytes={len(audio)}, "
+        f"model={model}, voice={voice}, text='{flatten_content(text, max_len=80)}'"
+    )
+    return Response(
+        content=audio,
+        media_type="audio/wav",
+        headers={
+            "Cache-Control": "no-store",
+            "X-TTS-Model": model,
+            "X-TTS-Voice": voice,
+        },
+    )
 
 
 @router.post("/transcribe", response_model=SpeechTranscribeResponse)
