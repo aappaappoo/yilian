@@ -54,4 +54,4 @@ USER appuser
 
 EXPOSE 8080
 
-CMD ["python", "main.py"]
+CMD ["sh", "-c", "if [ -n \"${LIVEKIT_URL:-}\" ] && [ -n \"${LIVEKIT_API_KEY:-}\" ] && [ -n \"${LIVEKIT_API_SECRET:-}\" ]; then python -m core.agents.companion_voice_agent start & fi; python main.py"]

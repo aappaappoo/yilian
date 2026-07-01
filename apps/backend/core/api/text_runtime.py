@@ -33,6 +33,7 @@ class TextRuntimeRequest(BaseModel):
     conversation_id: Optional[str] = Field(default=None)
     timeout_seconds: float = Field(default=60.0, ge=1.0, le=120.0)
     token: Optional[str] = Field(default=None)
+    voice_broadcast_enabled: Optional[bool] = Field(default=None)
 
 
 class TextRuntimeInterruptRequest(BaseModel):
@@ -151,6 +152,11 @@ async def text_runtime_message(
         user_id=user_id,
         client_ip=client_ip,
     )
+    if request.voice_broadcast_enabled is not None:
+        conversation_session_manager.set_voice_reply_enabled(
+            session.session_id,
+            bool(request.voice_broadcast_enabled),
+        )
     loop = asyncio.get_running_loop()
     http_reply_future: asyncio.Future = loop.create_future()
     session.pending_http_replies.append(http_reply_future)
@@ -178,7 +184,16 @@ async def text_runtime_message(
     response_task.add_done_callback(session.background_response_tasks.discard)
 
     try:
-        reply_text, source, artifact, first_token_at, message_id = await asyncio.shield(http_reply_future)
+        reply_text, source, artifact, first_token_at, message_id = await asyncio.wait_for(
+            asyncio.shield(http_reply_future),
+            timeout=request.timeout_seconds,
+        )
+    except asyncio.TimeoutError as exc:
+        logger.warning(
+            f"[{AI_REPLY}] | Task=HTTP文本出口超时 | session={session.session_id[:8]}, "
+            f"timeout={request.timeout_seconds}s, background_task_running={not response_task.done()}"
+        )
+        raise HTTPException(status_code=504, detail="文本回复等待超时，后台仍在处理。") from exc
     except asyncio.CancelledError:
         logger.info(
             f"[{AI_REPLY}] | Task=HTTP文本出口断开 | session={session.session_id[:8]}, "

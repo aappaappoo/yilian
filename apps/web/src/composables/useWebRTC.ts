@@ -6,6 +6,8 @@ import { useSessionStore } from '../stores/session'
 import { useAuthStore } from '../stores/auth'
 import { apiUrl } from '../utils/api'
 
+const VOICE_ENABLED_STORAGE_KEY = 'soulmeet.voiceBroadcast.enabled.v1'
+
 interface ConnectOptions {
   sessionId?: string
   conversationId?: string
@@ -14,6 +16,10 @@ interface ConnectOptions {
 interface ConnectResult {
   sessionId: string
   conversationId?: string
+}
+
+interface DisconnectOptions {
+  releaseMicrophone?: boolean
 }
 
 interface LiveKitTokenResponse {
@@ -25,7 +31,15 @@ interface LiveKitTokenResponse {
   participant_identity: string
 }
 
-const voiceTransport = (import.meta.env.VITE_VOICE_TRANSPORT || 'livekit').toLowerCase()
+function readStoredVoiceEnabled(): boolean {
+  if (typeof localStorage === 'undefined') return false
+  return localStorage.getItem(VOICE_ENABLED_STORAGE_KEY) === '1'
+}
+
+function writeStoredVoiceEnabled(enabled: boolean) {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(VOICE_ENABLED_STORAGE_KEY, enabled ? '1' : '0')
+}
 
 export function useWebRTC() {
   const sessionStore = useSessionStore()
@@ -37,15 +51,34 @@ export function useWebRTC() {
   const remoteStream = ref<MediaStream | null>(null)
   const remoteAudioEl = ref<HTMLAudioElement | null>(null)
   const isMicMuted = ref(true)
-  const voiceEnabled = ref(false)
+  const voiceEnabled = ref(readStoredVoiceEnabled())
   const vadInterruptEnabled = ref(true)
 
   const onMessage = ref<((msg: ServerMessage) => void) | null>(null)
 
-  let pingInterval: ReturnType<typeof setInterval> | null = null
-  let microphoneSender: RTCRtpSender | null = null
   let livekitRoom: Room | null = null
+  let connectingLivekitRoom: Room | null = null
   let livekitPublishedTrack: MediaStreamTrack | null = null
+  let microphoneRequestSeq = 0
+  let microphoneEnablePromise: Promise<void> | null = null
+
+  async function publishMicrophoneTrack(track: MediaStreamTrack) {
+    if (!livekitRoom) return
+    if (livekitPublishedTrack === track) return
+    if (livekitPublishedTrack) {
+      livekitRoom.localParticipant.unpublishTrack(livekitPublishedTrack)
+      livekitPublishedTrack = null
+    }
+    const publication = await livekitRoom.localParticipant.publishTrack(track, { source: Track.Source.Microphone })
+    livekitPublishedTrack = track
+    console.info('[useWebRTC] LiveKit 麦克风音轨已发布', {
+      trackId: track.id,
+      trackSid: (publication as { trackSid?: string; sid?: string }).trackSid
+        ?? (publication as { trackSid?: string; sid?: string }).sid
+        ?? '<unknown>',
+      enabled: track.enabled,
+    })
+  }
 
   function handleRealtimePayload(raw: unknown) {
     try {
@@ -65,6 +98,9 @@ export function useWebRTC() {
       else if (msg.type === 'tools_update') {
         sessionStore.updateAvailableTools(msg.tools)
       }
+      else if (typeof msg.type === 'string' && msg.type.startsWith('voice_broadcast_')) {
+        return
+      }
       onMessage.value?.(msg)
     }
     catch (err) {
@@ -72,27 +108,24 @@ export function useWebRTC() {
     }
   }
 
-  function handleDataChannelMessage(event: MessageEvent) {
-    handleRealtimePayload(event.data)
-  }
-
   async function ensureMicrophoneTrack() {
     const existingTrack = localStream.value?.getAudioTracks()[0]
     if (existingTrack) {
       existingTrack.enabled = true
-      if (microphoneSender && microphoneSender.track !== existingTrack) {
-        await microphoneSender.replaceTrack(existingTrack)
-      }
-      if (livekitRoom && livekitPublishedTrack !== existingTrack) {
-        await livekitRoom.localParticipant.publishTrack(existingTrack, { source: Track.Source.Microphone })
-        livekitPublishedTrack = existingTrack
-      }
+      await publishMicrophoneTrack(existingTrack)
       return
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       throw new Error('无法访问麦克风。请确保使用 HTTPS 访问，或在浏览器中允许不安全来源。')
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    })
     localStream.value = stream
     const track = stream.getAudioTracks()[0]
     if (!track) {
@@ -100,29 +133,10 @@ export function useWebRTC() {
     }
     track.enabled = true
 
-    if (microphoneSender) {
-      await microphoneSender.replaceTrack(track)
-      return
-    }
-    if (livekitRoom) {
-      await livekitRoom.localParticipant.publishTrack(track, { source: Track.Source.Microphone })
-      livekitPublishedTrack = track
-      return
-    }
-
-    const pc = peerConnection.value
-    if (pc && pc.signalingState === 'stable') {
-      console.warn('[useWebRTC] 未找到预协商的麦克风 sender，无法在不重新协商的情况下开启麦克风。')
-    }
+    await publishMicrophoneTrack(track)
   }
 
   function releaseMicrophoneTrack() {
-    const sender = microphoneSender
-    if (sender?.track) {
-      void sender.replaceTrack(null).catch((err) => {
-        console.warn('[useWebRTC] 麦克风音轨解绑失败:', err)
-      })
-    }
     if (livekitRoom && livekitPublishedTrack) {
       livekitRoom.localParticipant.unpublishTrack(livekitPublishedTrack)
       livekitPublishedTrack = null
@@ -137,38 +151,39 @@ export function useWebRTC() {
     localStream.value = null
   }
 
-  function startPing() {
-    stopPing()
-    pingInterval = setInterval(() => {
-      if (dataChannel.value?.readyState === 'open') {
-        dataChannel.value.send('ping')
-      }
-    }, 1000)
-  }
-
-  function stopPing() {
-    if (pingInterval !== null) {
-      clearInterval(pingInterval)
-      pingInterval = null
-    }
-  }
-
   function sendRealtimePayload(payload: Record<string, unknown>): boolean {
-    if (voiceTransport === 'livekit' && livekitRoom) {
+    if (livekitRoom) {
       const data = new TextEncoder().encode(JSON.stringify(payload))
       void livekitRoom.localParticipant.publishData(data, { reliable: true })
-      return true
-    }
-    if (dataChannel.value?.readyState === 'open') {
-      dataChannel.value.send(JSON.stringify(payload))
       return true
     }
     return false
   }
 
+  function sendRealtimeEvent(payload: Record<string, unknown>): boolean {
+    return sendRealtimePayload(payload)
+  }
+
   function sendRealtimeSettings() {
     sendRealtimePayload({ type: 'set_voice_mode', enabled: voiceEnabled.value })
     sendRealtimePayload({ type: 'set_vad_interrupt', enabled: vadInterruptEnabled.value })
+  }
+
+  async function startLiveKitAudioPlayback(reason: string) {
+    const room = livekitRoom || connectingLivekitRoom
+    if (!room) {
+      return
+    }
+    try {
+      await room.startAudio()
+      console.info('[useWebRTC] LiveKit 音频播放已解锁', {
+        reason,
+        canPlaybackAudio: room.canPlaybackAudio,
+      })
+    }
+    catch (err) {
+      console.warn('[useWebRTC] LiveKit 音频播放解锁失败:', err)
+    }
   }
 
   function attachLiveKitAudioTrack(track: RemoteTrack) {
@@ -177,11 +192,27 @@ export function useWebRTC() {
     }
     const el = track.attach() as HTMLAudioElement
     el.autoplay = true
+    el.setAttribute('playsinline', 'true')
     el.muted = !voiceEnabled.value
+    el.style.position = 'fixed'
+    el.style.width = '1px'
+    el.style.height = '1px'
+    el.style.opacity = '0'
+    el.style.pointerEvents = 'none'
+    el.setAttribute('aria-hidden', 'true')
+    if (typeof document !== 'undefined' && !el.isConnected) {
+      document.body.appendChild(el)
+    }
     remoteAudioEl.value = el
     const stream = el.srcObject instanceof MediaStream ? el.srcObject : null
     if (stream) {
       remoteStream.value = stream
+    }
+    if (voiceEnabled.value) {
+      void startLiveKitAudioPlayback('track_subscribed')
+      void el.play().catch((err) => {
+        console.warn('[useWebRTC] LiveKit 远端音频播放失败:', err)
+      })
     }
   }
 
@@ -209,7 +240,8 @@ export function useWebRTC() {
       }),
     })
     if (!tokenResp.ok) {
-      throw new Error(`LiveKit token 获取失败: ${tokenResp.status}`)
+      const detail = await tokenResp.json().catch(() => null) as { detail?: string } | null
+      throw new Error(detail?.detail || `LiveKit token 获取失败: ${tokenResp.status}`)
     }
     const tokenData = await tokenResp.json() as LiveKitTokenResponse
     console.info('[useWebRTC] LiveKit token 已获取', {
@@ -222,20 +254,78 @@ export function useWebRTC() {
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
+      webAudioMix: true,
     })
-    livekitRoom = room
+    connectingLivekitRoom = room
 
+    ;(room as any).on(RoomEvent.ConnectionStateChanged, (state: string) => {
+      console.info('[useWebRTC] LiveKit 连接状态变化', {
+        state,
+        sessionId: tokenData.session_id,
+        roomName: tokenData.room_name,
+      })
+    })
+    ;(room as any).on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
+      console.info('[useWebRTC] LiveKit 远端参与者已加入', {
+        identity: participant.identity,
+        sessionId: tokenData.session_id,
+        roomName: tokenData.room_name,
+      })
+    })
+    ;(room as any).on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
+      console.info('[useWebRTC] LiveKit 远端参与者已离开', {
+        identity: participant.identity,
+        sessionId: tokenData.session_id,
+        roomName: tokenData.room_name,
+      })
+    })
+    ;(room as any).on(RoomEvent.TrackPublished, (
+      publication: RemoteTrackPublication,
+      participant: RemoteParticipant,
+    ) => {
+      console.info('[useWebRTC] LiveKit 远端音轨已发布', {
+        identity: participant.identity,
+        kind: publication.kind,
+        source: publication.source,
+        trackSid: publication.trackSid,
+        sessionId: tokenData.session_id,
+        roomName: tokenData.room_name,
+      })
+    })
     ;(room as any).on(RoomEvent.TrackSubscribed, (
       track: RemoteTrack,
-      _publication: RemoteTrackPublication,
-      _participant: RemoteParticipant,
+      publication: RemoteTrackPublication,
+      participant: RemoteParticipant,
     ) => {
       console.info('[useWebRTC] LiveKit 音频轨道已订阅', {
         kind: track.kind,
+        identity: participant.identity,
+        source: publication.source,
+        trackSid: publication.trackSid,
         sessionId: tokenData.session_id,
         roomName: tokenData.room_name,
       })
       attachLiveKitAudioTrack(track)
+    })
+    ;(room as any).on(RoomEvent.LocalTrackPublished, (publication: { kind?: string; source?: string; trackSid?: string }) => {
+      console.info('[useWebRTC] LiveKit 本地音轨发布完成', {
+        kind: publication.kind,
+        source: publication.source,
+        trackSid: publication.trackSid,
+        sessionId: tokenData.session_id,
+        roomName: tokenData.room_name,
+      })
+    })
+    ;(room as any).on(RoomEvent.AudioPlaybackStatusChanged, (playing: boolean) => {
+      console.info('[useWebRTC] LiveKit 音频播放状态变化', {
+        playing,
+        canPlaybackAudio: room.canPlaybackAudio,
+        sessionId: tokenData.session_id,
+        roomName: tokenData.room_name,
+      })
+    })
+    ;(room as any).on(RoomEvent.MediaDevicesError, (err: unknown) => {
+      console.warn('[useWebRTC] LiveKit 媒体设备错误:', err)
     })
     ;(room as any).on(RoomEvent.DataReceived, (payload: Uint8Array) => {
       console.debug('[useWebRTC] LiveKit 数据消息已收到', {
@@ -260,6 +350,15 @@ export function useWebRTC() {
       roomName: tokenData.room_name,
     })
     await room.connect(tokenData.url, tokenData.token)
+    if (connectingLivekitRoom !== room) {
+      room.disconnect()
+      throw new Error('LiveKit 连接已取消')
+    }
+    connectingLivekitRoom = null
+    livekitRoom = room
+    if (voiceEnabled.value) {
+      void startLiveKitAudioPlayback('room_connected')
+    }
     console.info('[useWebRTC] LiveKit 房间连接成功', {
       sessionId: tokenData.session_id,
       roomName: tokenData.room_name,
@@ -271,6 +370,10 @@ export function useWebRTC() {
       connectedAt: new Date().toISOString(),
     })
     sessionStore.setStatus('connected')
+    const existingTrack = localStream.value?.getAudioTracks()[0]
+    if (existingTrack && !isMicMuted.value) {
+      await publishMicrophoneTrack(existingTrack)
+    }
     sendRealtimeSettings()
     return {
       sessionId: tokenData.session_id,
@@ -278,133 +381,11 @@ export function useWebRTC() {
     }
   }
 
-  async function connectSelfWebRTC(audience: string, options: ConnectOptions = {}): Promise<ConnectResult | undefined> {
-    if (!window.RTCPeerConnection) {
-      sessionStore.setError('浏览器不支持 WebRTC')
-      return
-    }
-
-    const reconnectSessionId = options.sessionId || ''
-    const conversationId = options.conversationId || ''
-
-    let iceServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
-    try {
-      const iceResp = await fetch(apiUrl('/api/ice-servers'))
-      if (iceResp.ok) {
-        const servers = await iceResp.json()
-        if (Array.isArray(servers) && servers.length > 0) {
-          iceServers = servers
-        }
-      }
-    }
-    catch (error) {
-      console.warn('[useWebRTC] 获取 ICE 服务器配置失败，使用默认 STUN', error)
-    }
-
-    const pc = new RTCPeerConnection({ iceServers })
-    peerConnection.value = pc
-
-    const audioTransceiver = pc.addTransceiver('audio', { direction: 'sendrecv' })
-    microphoneSender = audioTransceiver.sender
-
-    pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        remoteStream.value = event.streams[0]
-        if (!remoteAudioEl.value) {
-          remoteAudioEl.value = new Audio()
-          remoteAudioEl.value.autoplay = true
-        }
-        remoteAudioEl.value.muted = !voiceEnabled.value
-        remoteAudioEl.value.srcObject = event.streams[0]
-      }
-    }
-
-    const dc = pc.createDataChannel('messages')
-    dataChannel.value = dc
-    dc.onmessage = handleDataChannelMessage
-    dc.onopen = () => {
-      if (dataChannel.value !== dc) {
-        return
-      }
-      sessionStore.setStatus('connected')
-      sendRealtimeSettings()
-      startPing()
-    }
-    dc.onclose = () => {
-      if (dataChannel.value !== dc) {
-        return
-      }
-      stopPing()
-      sessionStore.setStatus('disconnected')
-    }
-
-    pc.oniceconnectionstatechange = () => {
-      if (peerConnection.value !== pc) {
-        return
-      }
-      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
-        stopPing()
-        sessionStore.setStatus('disconnected')
-      }
-    }
-
-    const offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
-
-    await new Promise<void>((resolve) => {
-      if (pc.iceGatheringState === 'complete') {
-        resolve()
-      }
-      else {
-        pc.onicegatheringstatechange = () => {
-          if (pc.iceGatheringState === 'complete')
-            resolve()
-        }
-        setTimeout(resolve, 3000)
-      }
-    })
-
-    const response = await fetch(apiUrl('/api/offer'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sdp: pc.localDescription!.sdp,
-        type: pc.localDescription!.type,
-        audience,
-        session_id: reconnectSessionId || undefined,
-        conversation_id: conversationId || undefined,
-        token: authStore.token ?? '',
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`后端响应错误: ${response.status}`)
-    }
-
-    const data = await response.json()
-    sessionStore.setSessionInfo({
-      sessionId: data.session_id,
-      audience: audience as AudienceType,
-      currentNode: '',
-      connectedAt: new Date().toISOString(),
-    })
-    await pc.setRemoteDescription({ sdp: data.sdp, type: data.type })
-    return {
-      sessionId: data.session_id,
-      conversationId: data.conversation_id,
-    }
-  }
-
   async function connect(audience: string, options: ConnectOptions = {}): Promise<ConnectResult | undefined> {
-    disconnect(false)
+    disconnect(false, { releaseMicrophone: false })
     sessionStore.setStatus('connecting')
     try {
-      if (voiceTransport === 'livekit') {
-        return await connectLiveKit(audience, options)
-      }
-      else {
-        return await connectSelfWebRTC(audience, options)
-      }
+      return await connectLiveKit(audience, options)
     }
     catch (err) {
       const msg = err instanceof Error ? err.message : '连接失败'
@@ -430,8 +411,17 @@ export function useWebRTC() {
   function toggleVoice() {
     const newState = !voiceEnabled.value
     voiceEnabled.value = newState
+    writeStoredVoiceEnabled(newState)
+    if (newState) {
+      void startLiveKitAudioPlayback('voice_enabled')
+    }
     if (remoteAudioEl.value) {
       remoteAudioEl.value.muted = !newState
+      if (newState) {
+        void remoteAudioEl.value.play().catch((err) => {
+          console.warn('[useWebRTC] LiveKit 远端音频播放失败:', err)
+        })
+      }
     }
     sendRealtimePayload({ type: 'set_voice_mode', enabled: newState })
   }
@@ -444,36 +434,50 @@ export function useWebRTC() {
 
   function setMicMuted(muted: boolean) {
     if (muted) {
+      ++microphoneRequestSeq
+      microphoneEnablePromise = null
       releaseMicrophoneTrack()
       isMicMuted.value = true
       return
     }
-    ensureMicrophoneTrack()
+    if (microphoneEnablePromise) {
+      return
+    }
+    const requestSeq = ++microphoneRequestSeq
+    microphoneEnablePromise = ensureMicrophoneTrack()
       .then(() => {
+        if (requestSeq !== microphoneRequestSeq) {
+          releaseMicrophoneTrack()
+          isMicMuted.value = true
+          return
+        }
         for (const track of localStream.value?.getAudioTracks() ?? []) {
           track.enabled = true
         }
         isMicMuted.value = false
+        console.info('[useWebRTC] 麦克风已开启', {
+          tracks: localStream.value?.getAudioTracks().length ?? 0,
+        })
       })
       .catch((err) => {
+        if (requestSeq !== microphoneRequestSeq) {
+          return
+        }
         const msg = err instanceof Error ? err.message : '无法开启麦克风'
         sessionStore.setError(msg)
         isMicMuted.value = true
       })
+      .finally(() => {
+        if (requestSeq === microphoneRequestSeq) {
+          microphoneEnablePromise = null
+        }
+      })
   }
 
   function forceReleaseMicrophone() {
+    ++microphoneRequestSeq
+    microphoneEnablePromise = null
     releaseMicrophoneTrack()
-    if (peerConnection.value) {
-      const senders = peerConnection.value.getSenders()
-      for (const sender of senders) {
-        if (sender.track?.kind === 'audio') {
-          void sender.replaceTrack(null).catch((err) => {
-            console.warn('[useWebRTC] 麦克风音轨解绑失败:', err)
-          })
-        }
-      }
-    }
     isMicMuted.value = true
   }
 
@@ -481,26 +485,35 @@ export function useWebRTC() {
     setMicMuted(!isMicMuted.value)
   }
 
-  function disconnect(updateStatus = true) {
-    stopPing()
+  function disconnect(updateStatus = true, options: DisconnectOptions = {}) {
+    const shouldReleaseMicrophone = options.releaseMicrophone ?? true
     remoteStream.value = null
     if (remoteAudioEl.value) {
       remoteAudioEl.value.srcObject = null
       remoteAudioEl.value.remove()
       remoteAudioEl.value = null
     }
-    forceReleaseMicrophone()
-    dataChannel.value?.close()
+    if (livekitRoom && livekitPublishedTrack) {
+      livekitRoom.localParticipant.unpublishTrack(livekitPublishedTrack)
+      livekitPublishedTrack = null
+    }
+    if (shouldReleaseMicrophone) {
+      forceReleaseMicrophone()
+    }
     dataChannel.value = null
-    peerConnection.value?.close()
     peerConnection.value = null
+    if (connectingLivekitRoom) {
+      connectingLivekitRoom.disconnect()
+      connectingLivekitRoom = null
+    }
     if (livekitRoom) {
       livekitRoom.disconnect()
       livekitRoom = null
     }
     livekitPublishedTrack = null
-    microphoneSender = null
-    isMicMuted.value = true
+    if (shouldReleaseMicrophone) {
+      isMicMuted.value = true
+    }
     if (updateStatus) {
       sessionStore.setStatus('disconnected')
     }
@@ -518,6 +531,7 @@ export function useWebRTC() {
     connect,
     disconnect,
     sendMessage,
+    sendRealtimeEvent,
     interruptResponse,
     toggleMic,
     setMicMuted,

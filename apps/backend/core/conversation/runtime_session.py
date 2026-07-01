@@ -43,9 +43,9 @@ from core.tools.registry import ToolRegistry
 TEXT_STREAM_CHUNK_MIN_CHARS = 48
 TEXT_STREAM_CHUNK_MAX_CHARS = 96
 TEXT_STREAM_CHUNK_DELAY_SECONDS = 0.035
-STREAM_DELTA_MIN_CHARS = 48
-STREAM_DELTA_MAX_CHARS = 120
-STREAM_DELTA_MAX_DELAY_SECONDS = 0.12
+STREAM_DELTA_MIN_CHARS = 12
+STREAM_DELTA_MAX_CHARS = 48
+STREAM_DELTA_MAX_DELAY_SECONDS = 0.06
 STREAM_DELTA_BREAK_CHARS = "。！？；;：:\n"
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]\n]{1,160})\]\((https?://[^\s)]+)\)")
 _BARE_URL_RE = re.compile(r"https?://[^\s<>\])）\"'，。；;、]+")
@@ -971,14 +971,21 @@ class ConversationSessionManager:
             "status": "delivered",
             "reminder": delivered_job.to_dict(),
         }
+        message_id = str(uuid4())
         async with session._lock:
-            first_token_at = await self.stream_assistant_text(session, text, source="soul_companion:reminder")
+            first_token_at = await self.stream_assistant_text(
+                session,
+                text,
+                source="soul_companion:reminder",
+                message_id=message_id,
+            )
             await self.dispatch_assistant_text(
                 session,
                 text,
                 source="soul_companion:reminder",
                 artifact=artifact,
                 first_token_at=first_token_at,
+                message_id=message_id,
                 resolve_http_reply=False,
             )
             await self.dispatch_voice_speech(session, text)
